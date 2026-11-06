@@ -141,8 +141,8 @@ class _ListScreenState extends State<ListScreen> {
   Widget _buildShimmer() => ListView.builder(
     padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
     itemCount: 8,
-    itemBuilder: (_, i) => Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+    itemBuilder: (_, i) => const Padding(
+      padding: EdgeInsets.only(bottom: 12),
       child: ShimmerLoader(height: 72, radius: 16),
     ),
   );
@@ -153,7 +153,7 @@ class _ListScreenState extends State<ListScreen> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.wifi_off_rounded, color: AppColors.textMuted, size: 48),
+          const Icon(Icons.wifi_off_rounded, color: AppColors.textMuted, size: 48),
           const SizedBox(height: 16),
           Text(_error!, textAlign: TextAlign.center, style: const TextStyle(color: AppColors.textSecondary, fontSize: 14)),
           const SizedBox(height: 20),

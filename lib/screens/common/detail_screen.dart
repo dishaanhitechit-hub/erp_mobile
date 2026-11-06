@@ -99,7 +99,7 @@ class _DetailScreenState extends State<DetailScreen> {
 
   Widget _buildAuditCard(Map<String, dynamic> rec) {
     return GlassCard(
-      gradient: [const Color(0x1A3D8EFF), const Color(0x0A1A6FD4)],
+      gradient: const [Color(0x1A3D8EFF), Color(0x0A1A6FD4)],
       child: Row(
         children: [
           const Icon(Icons.history_rounded, color: AppColors.accent, size: 18),
@@ -122,8 +122,8 @@ class _DetailScreenState extends State<DetailScreen> {
 
   Widget _buildShimmer() => Padding(
     padding: const EdgeInsets.all(20),
-    child: Column(children: List.generate(10, (i) => Padding(
-      padding: const EdgeInsets.only(bottom: 10),
+    child: Column(children: List.generate(10, (i) => const Padding(
+      padding: EdgeInsets.only(bottom: 10),
       child: ShimmerLoader(height: 44, radius: 10),
     ))),
   );

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import '../../theme/app_theme.dart';
 import '../../services/api_service.dart';
 import '../../models/module.dart';
-import '../../widgets/glass_card.dart';
 import '../common/list_screen.dart';
 
 class HomeScreen extends StatefulWidget {

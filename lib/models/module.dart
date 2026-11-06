@@ -39,7 +39,7 @@ class ModuleSection {
 }
 
 final masterModules = [
-  ErpModule(
+  const ErpModule(
     title: 'Sundry Creditor', icon: Icons.account_balance_wallet_rounded,
     endpoint: ApiConfig.vendorList, params: {'type': 'creditor'},
     detailEndpoint: ApiConfig.vendorById, idKey: 'ledgerId',
@@ -50,7 +50,7 @@ final masterModules = [
       ColumnDef('whatsappNumber', 'Mobile'),
     ],
   ),
-  ErpModule(
+  const ErpModule(
     title: 'Sundry Debtor', icon: Icons.person_outline_rounded,
     endpoint: ApiConfig.vendorList, params: {'type': 'debtor'},
     detailEndpoint: ApiConfig.vendorById, idKey: 'ledgerId',
@@ -60,7 +60,7 @@ final masterModules = [
       ColumnDef('whatsappNumber', 'Mobile', isSubtitle: true),
     ],
   ),
-  ErpModule(
+  const ErpModule(
     title: 'Supplier', icon: Icons.local_shipping_rounded,
     endpoint: ApiConfig.supplierList,
     detailEndpoint: ApiConfig.supplierById, idKey: 'supplierId',
@@ -70,7 +70,7 @@ final masterModules = [
       ColumnDef('mobileNumber', 'Mobile', isSubtitle: true),
     ],
   ),
-  ErpModule(
+  const ErpModule(
     title: 'Item Code', icon: Icons.inventory_2_rounded,
     endpoint: ApiConfig.itemList,
     detailEndpoint: ApiConfig.itemById, idKey: 'itemId',
@@ -81,7 +81,7 @@ final masterModules = [
       ColumnDef('unit', 'Unit'),
     ],
   ),
-  ErpModule(
+  const ErpModule(
     title: 'Asset Code', icon: Icons.precision_manufacturing_rounded,
     endpoint: ApiConfig.assetList,
     detailEndpoint: ApiConfig.assetById, idKey: 'assetId',
@@ -91,7 +91,7 @@ final masterModules = [
       ColumnDef('assetType', 'Type', isSubtitle: true),
     ],
   ),
-  ErpModule(
+  const ErpModule(
     title: 'Bank & Cash', icon: Icons.account_balance_rounded,
     endpoint: ApiConfig.bankCashList,
     detailEndpoint: ApiConfig.bankCashById, idKey: 'id',
@@ -102,7 +102,7 @@ final masterModules = [
       ColumnDef('bankName', 'Bank'),
     ],
   ),
-  ErpModule(
+  const ErpModule(
     title: 'Cost Center', icon: Icons.account_tree_rounded,
     endpoint: ApiConfig.ccCodeList,
     columns: [
@@ -111,7 +111,7 @@ final masterModules = [
       ColumnDef('projectCode', 'Project', isSubtitle: true),
     ],
   ),
-  ErpModule(
+  const ErpModule(
     title: 'Category', icon: Icons.category_rounded,
     endpoint: ApiConfig.categoryList,
     columns: [
@@ -120,7 +120,7 @@ final masterModules = [
       ColumnDef('categoryHead', 'Head', isSubtitle: true),
     ],
   ),
-  ErpModule(
+  const ErpModule(
     title: 'Unit', icon: Icons.straighten_rounded,
     endpoint: ApiConfig.unitList,
     columns: [
@@ -129,7 +129,7 @@ final masterModules = [
       ColumnDef('unitType', 'Type', isSubtitle: true, isBadge: true),
     ],
   ),
-  ErpModule(
+  const ErpModule(
     title: 'Terms & Conditions', icon: Icons.gavel_rounded,
     endpoint: ApiConfig.termList,
     columns: [
@@ -140,7 +140,7 @@ final masterModules = [
 ];
 
 final projectModules = [
-  ErpModule(
+  const ErpModule(
     title: 'Projects', icon: Icons.business_center_rounded,
     endpoint: ApiConfig.projectList,
     detailEndpoint: ApiConfig.projectById, idKey: 'id',
@@ -151,7 +151,7 @@ final projectModules = [
       ColumnDef('status', 'Status', isBadge: true),
     ],
   ),
-  ErpModule(
+  const ErpModule(
     title: 'Concrete Registry', icon: Icons.construction_rounded,
     endpoint: ApiConfig.concreteList,
     columns: [
@@ -159,7 +159,7 @@ final projectModules = [
       ColumnDef('date', 'Date', isSubtitle: true),
     ],
   ),
-  ErpModule(
+  const ErpModule(
     title: 'Drawing Register', icon: Icons.architecture_rounded,
     endpoint: ApiConfig.drawingList,
     columns: [
@@ -171,7 +171,7 @@ final projectModules = [
 ];
 
 final resourceModules = [
-  ErpModule(
+  const ErpModule(
     title: 'Machinery', icon: Icons.engineering_rounded,
     endpoint: ApiConfig.machineryList,
     detailEndpoint: ApiConfig.machineryById, idKey: 'id',
@@ -182,7 +182,7 @@ final resourceModules = [
       ColumnDef('status', 'Status', isBadge: true),
     ],
   ),
-  ErpModule(
+  const ErpModule(
     title: 'Manpower', icon: Icons.people_rounded,
     endpoint: ApiConfig.manpowerList,
     detailEndpoint: ApiConfig.manpowerById, idKey: 'id',
@@ -196,7 +196,7 @@ final resourceModules = [
 ];
 
 final financeModules = [
-  ErpModule(
+  const ErpModule(
     title: 'Purchase Bill', icon: Icons.receipt_long_rounded,
     endpoint: ApiConfig.purchaseBillList,
     columns: [
@@ -206,7 +206,7 @@ final financeModules = [
       ColumnDef('date', 'Date'),
     ],
   ),
-  ErpModule(
+  const ErpModule(
     title: 'Credit Note', icon: Icons.add_card_rounded,
     endpoint: ApiConfig.creditNoteList,
     columns: [
@@ -215,7 +215,7 @@ final financeModules = [
       ColumnDef('amount', 'Amount'),
     ],
   ),
-  ErpModule(
+  const ErpModule(
     title: 'Debit Note', icon: Icons.remove_circle_outline_rounded,
     endpoint: ApiConfig.debitNoteList,
     columns: [
@@ -224,7 +224,7 @@ final financeModules = [
       ColumnDef('amount', 'Amount'),
     ],
   ),
-  ErpModule(
+  const ErpModule(
     title: 'Contra', icon: Icons.swap_horiz_rounded,
     endpoint: ApiConfig.contraList,
     columns: [
@@ -233,7 +233,7 @@ final financeModules = [
       ColumnDef('date', 'Date'),
     ],
   ),
-  ErpModule(
+  const ErpModule(
     title: 'GIN', icon: Icons.output_rounded,
     endpoint: ApiConfig.ginList,
     columns: [
@@ -242,7 +242,7 @@ final financeModules = [
       ColumnDef('date', 'Date'),
     ],
   ),
-  ErpModule(
+  const ErpModule(
     title: 'Indent', icon: Icons.list_alt_rounded,
     endpoint: ApiConfig.indentList,
     columns: [
@@ -254,7 +254,7 @@ final financeModules = [
 ];
 
 final settingsModules = [
-  ErpModule(
+  const ErpModule(
     title: 'Users', icon: Icons.manage_accounts_rounded,
     endpoint: ApiConfig.userList,
     columns: [
