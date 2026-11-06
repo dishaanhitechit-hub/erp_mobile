@@ -1,6 +1,6 @@
 class ApiConfig {
   // Change this to your deployed backend URL
-  static const String baseUrl = 'https://your-backend.com';
+  static const String baseUrl = 'https://132.154.156.82/api';
 
   static const String login       = '/auth/login';
   static const String me          = '/auth/me';

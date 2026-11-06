@@ -11,10 +11,7 @@ Flutter mobile app for PRAX Construction ERP — view-only mode for all modules.
    cd erp_mobile
    flutter pub get
    ```
-3. **Configure backend URL** — open `lib/config/api.dart` and set:
-   ```dart
-   static const String baseUrl = 'https://your-backend-url.com';
-   ```
+3. **Backend URL** is pre-configured to `https://132.154.156.82/api` in `lib/config/api.dart`
 4. **Run**
    ```bash
    flutter run
