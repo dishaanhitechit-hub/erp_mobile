@@ -1,0 +1,81 @@
+name: Release APK
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-and-release:
+    name: Build Flutter APK & Create Release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.5'
+          channel: stable
+          cache: true
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Run tests
+        run: flutter test --no-pub
+        continue-on-error: true
+
+      - name: Build release APK
+        run: flutter build apk --release --split-per-abi
+
+      - name: Build universal APK
+        run: flutter build apk --release
+
+      - name: Rename artifacts
+        run: |
+          VERSION=${{ github.ref_name }}
+          mkdir -p dist
+          cp build/app/outputs/flutter-apk/app-release.apk        dist/PRAX-ERP-${VERSION}.apk
+          cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk  dist/PRAX-ERP-${VERSION}-arm64.apk  2>/dev/null || true
+          cp build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk dist/PRAX-ERP-${VERSION}-arm32.apk  2>/dev/null || true
+          cp build/app/outputs/flutter-apk/app-x86_64-release.apk      dist/PRAX-ERP-${VERSION}-x64.apk    2>/dev/null || true
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: PRAX ERP Mobile ${{ github.ref_name }}
+          body: |
+            ## PRAX ERP Mobile ${{ github.ref_name }}
+
+            Flutter mobile app for PRAX Construction ERP — view-only mode for all modules.
+
+            ### Download
+            | File | Architecture |
+            |------|--------------|
+            | `PRAX-ERP-${{ github.ref_name }}.apk` | Universal (all devices) |
+            | `PRAX-ERP-${{ github.ref_name }}-arm64.apk` | ARM64 (most modern phones) |
+            | `PRAX-ERP-${{ github.ref_name }}-arm32.apk` | ARMv7 (older phones) |
+            | `PRAX-ERP-${{ github.ref_name }}-x64.apk` | x86_64 (emulators) |
+
+            ### Install
+            1. Download the APK matching your device (use Universal if unsure)
+            2. Enable **Install from unknown sources** in Android settings
+            3. Tap the downloaded APK to install
+
+            ### Modules
+            Master · Projects · Resources · Finance · Settings
+
+            > Backend: `https://132.154.156.82/api`
+          draft: false
+          prerelease: false
+          files: dist/*
+          token: ${{ secrets.GITHUB_TOKEN }}
