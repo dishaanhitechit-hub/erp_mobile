@@ -4,6 +4,12 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g. v1.0.1)'
+        required: true
+        default: 'v1.0.1'
 
 jobs:
   build-and-release:
@@ -13,6 +19,15 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Set version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "tag=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+          else
+            echo "tag=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+          fi
 
       - name: Set up Java
         uses: actions/setup-java@v4
@@ -34,7 +49,7 @@ jobs:
         run: flutter test --no-pub
         continue-on-error: true
 
-      - name: Build release APK
+      - name: Build release APK (split per ABI)
         run: flutter build apk --release --split-per-abi
 
       - name: Build universal APK
@@ -42,29 +57,30 @@ jobs:
 
       - name: Rename artifacts
         run: |
-          VERSION=${{ github.ref_name }}
+          VERSION=${{ steps.version.outputs.tag }}
           mkdir -p dist
-          cp build/app/outputs/flutter-apk/app-release.apk        dist/PRAX-ERP-${VERSION}.apk
-          cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk  dist/PRAX-ERP-${VERSION}-arm64.apk  2>/dev/null || true
-          cp build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk dist/PRAX-ERP-${VERSION}-arm32.apk  2>/dev/null || true
-          cp build/app/outputs/flutter-apk/app-x86_64-release.apk      dist/PRAX-ERP-${VERSION}-x64.apk    2>/dev/null || true
+          cp build/app/outputs/flutter-apk/app-release.apk             dist/PRAX-ERP-${VERSION}.apk
+          cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk   dist/PRAX-ERP-${VERSION}-arm64.apk   2>/dev/null || true
+          cp build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk  dist/PRAX-ERP-${VERSION}-arm32.apk   2>/dev/null || true
+          cp build/app/outputs/flutter-apk/app-x86_64-release.apk       dist/PRAX-ERP-${VERSION}-x64.apk     2>/dev/null || true
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          name: PRAX ERP Mobile ${{ github.ref_name }}
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: PRAX ERP Mobile ${{ steps.version.outputs.tag }}
           body: |
-            ## PRAX ERP Mobile ${{ github.ref_name }}
+            ## PRAX ERP Mobile ${{ steps.version.outputs.tag }}
 
             Flutter mobile app for PRAX Construction ERP — view-only mode for all modules.
 
             ### Download
             | File | Architecture |
             |------|--------------|
-            | `PRAX-ERP-${{ github.ref_name }}.apk` | Universal (all devices) |
-            | `PRAX-ERP-${{ github.ref_name }}-arm64.apk` | ARM64 (most modern phones) |
-            | `PRAX-ERP-${{ github.ref_name }}-arm32.apk` | ARMv7 (older phones) |
-            | `PRAX-ERP-${{ github.ref_name }}-x64.apk` | x86_64 (emulators) |
+            | `PRAX-ERP-${{ steps.version.outputs.tag }}.apk` | Universal (all devices) |
+            | `PRAX-ERP-${{ steps.version.outputs.tag }}-arm64.apk` | ARM64 (most modern phones) |
+            | `PRAX-ERP-${{ steps.version.outputs.tag }}-arm32.apk` | ARMv7 (older phones) |
+            | `PRAX-ERP-${{ steps.version.outputs.tag }}-x64.apk` | x86_64 (emulators) |
 
             ### Install
             1. Download the APK matching your device (use Universal if unsure)
