@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart' show MissingPluginException;
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'comm_api.dart';
 
@@ -55,6 +56,7 @@ class MeshCall extends ChangeNotifier {
 
   final peers = <int, CallPeer>{};
   final _conns = <int, _Conn>{};
+  final _connecting = <int>{}; // offer being prepared (async)
   List<Map<String, dynamic>> _ice = [..._stun];
 
   MediaStream? _local;
@@ -75,6 +77,7 @@ class MeshCall extends ChangeNotifier {
   Timer? _detailTimer;
   bool _busy = false;
   bool _disposed = false;
+  bool _rendererReady = false;
 
   bool get hasLocalVideo => (_local?.getVideoTracks().isNotEmpty ?? false);
   Map<String, dynamic> get _media => {'cam': camOn, 'mic': micOn, 'sharing': false};
@@ -86,21 +89,42 @@ class MeshCall extends ChangeNotifier {
   // ── Start / stop ────────────────────────────────────────────────────────
 
   Future<void> start() async {
+    // Whatever happens with camera/mic, keep following the call on the server,
+    // so the screen never gets stuck on "Ringing…".
+    try {
+      await _startMedia();
+    } catch (e) {
+      debugPrint('[call] media setup failed: $e');
+      mediaError ??= e is MissingPluginException
+          ? 'Calling is not available in this build. Close the app fully and reinstall / re-run it.'
+          : 'Could not start microphone/camera: $e';
+    }
+    if (_disposed || endedReason != null) return;
+    stage = 'Waiting for others…';
+    _notify();
+    await _pollDetail();
+    if (_disposed) return;
+    _sigTimer = Timer.periodic(const Duration(milliseconds: 1200), (_) => _pollSignals());
+    _detailTimer = Timer.periodic(const Duration(milliseconds: 2500), (_) => _pollDetail());
+  }
+
+  Future<void> _startMedia() async {
     await localRenderer.initialize();
+    _rendererReady = true;
     try {
       _local = await navigator.mediaDevices.getUserMedia({
         'audio': true,
         'video': isVideo ? {'facingMode': 'user'} : false,
       });
     } catch (e) {
+      debugPrint('[call] getUserMedia failed: $e');
       if (isVideo) {
         try {
           _local = await navigator.mediaDevices.getUserMedia({'audio': true, 'video': false});
-          mediaError = 'Camera unavailable — joined with audio only.';
+          mediaError = 'Camera unavailable — joined with audio only. Allow Camera for PRAX ERP in phone Settings → Apps.';
         } catch (_) {}
       }
-      _local ??= null;
-      mediaError ??= 'Microphone blocked. Allow mic (and camera) for PRAX ERP in phone Settings → Apps.';
+      mediaError ??= 'Microphone blocked. Allow Microphone (and Camera) for PRAX ERP in phone Settings → Apps.';
     }
     if (_disposed) {
       await _stopLocal();
@@ -113,17 +137,11 @@ class MeshCall extends ChangeNotifier {
     try {
       await Helper.setSpeakerphoneOn(speakerOn);
     } catch (_) {}
+    _notify();
 
     final turn = await CommApi.turnServers();
     hasTurn = turn.isNotEmpty;
     _ice = [..._stun, ...turn];
-    stage = 'Waiting for others…';
-    _notify();
-
-    await _pollDetail();
-    if (_disposed) return;
-    _sigTimer = Timer.periodic(const Duration(milliseconds: 1200), (_) => _pollSignals());
-    _detailTimer = Timer.periodic(const Duration(milliseconds: 2500), (_) => _pollDetail());
   }
 
   /// Hang up: leave (the server ends the call when nobody is left).
@@ -170,7 +188,7 @@ class MeshCall extends ChangeNotifier {
     } catch (_) {}
     _local = null;
     try {
-      localRenderer.srcObject = null;
+      if (_rendererReady) localRenderer.srcObject = null;
     } catch (_) {}
   }
 
@@ -178,7 +196,7 @@ class MeshCall extends ChangeNotifier {
   void dispose() {
     if (endedReason == null) _teardown();
     _disposed = true;
-    localRenderer.dispose();
+    if (_rendererReady) localRenderer.dispose();
     try {
       Helper.setSpeakerphoneOn(false);
     } catch (_) {}
@@ -471,13 +489,21 @@ class MeshCall extends ChangeNotifier {
       if (p['userName'] != null) _names[uid] = '${p['userName']}';
       final state = '${p['state']}';
       if (state == 'in_call') {
-        if (_conns.containsKey(uid)) continue;
+        // They answered: never keep showing "Ringing…" for them
+        final peer = _peer(uid, 'connecting');
+        if (peer.state == 'ringing') peer.state = 'connecting';
+        if (_conns.containsKey(uid) || _connecting.contains(uid)) continue;
         if (myId < uid) {
-          _conns[uid] = await _createConn(uid, offerer: true); // reserve before the async offer
-          _offerTo(uid).catch_();
-        } else {
-          final peer = _peer(uid, 'connecting');
-          if (peer.state == 'ringing') peer.state = 'connecting';
+          _connecting.add(uid);
+          try {
+            await _createConn(uid, offerer: true);
+            _offerTo(uid).catch_();
+          } catch (e) {
+            _conns.remove(uid); // retry on the next poll
+            stage = 'Could not connect: $e';
+          } finally {
+            _connecting.remove(uid);
+          }
         }
       } else if (state == 'away') {
         // reloading their page — keep the tile, they'll send "rejoin"

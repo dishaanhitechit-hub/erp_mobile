@@ -39,4 +39,14 @@ void main() {
     await c.handleSignal({'senderId': 7, 'signalType': 'ended', 'payload': {}});
     expect(c.endedReason, 'Call ended');
   });
+
+  test('answered peer leaves "ringing" even if the WebRTC engine fails', () async {
+    final c = make();
+    await c.sync({'status': 'ringing', 'participants': [{'userId': 7, 'state': 'ringing'}]});
+    expect(c.peers[7]!.state, 'ringing');
+    // 5 < 7 so we offer; the native plugin is missing in tests → connection setup throws
+    await c.sync({'status': 'active', 'participants': [{'userId': 7, 'state': 'in_call'}]});
+    expect(c.peers[7]!.state, 'connecting');
+    expect(c.stage, startsWith('Could not connect'));
+  });
 }
