@@ -1,0 +1,120 @@
+name: Play Store
+
+# Every push to master builds a signed Android App Bundle and uploads it to
+# Google Play. Phones with the app installed from Play then update by themselves.
+#
+# Track: repo variable PLAY_TRACK (internal | alpha | beta | production), default "internal".
+# Secrets (Settings → Secrets and variables → Actions):
+#   ANDROID_KEYSTORE_BASE64     base64 of the upload keystore (.jks)
+#   ANDROID_KEYSTORE_PASSWORD   keystore password
+#   ANDROID_KEY_ALIAS           key alias (e.g. upload)
+#   ANDROID_KEY_PASSWORD        key password
+#   PLAY_SERVICE_ACCOUNT_JSON   Google Play service-account JSON (Play Console API access)
+#   GOOGLE_SERVICES_JSON        Firebase android/app/google-services.json (optional — push notifications)
+
+on:
+  push:
+    branches: [master]
+    paths-ignore: ['**.md', 'docs/**']
+  workflow_dispatch:
+    inputs:
+      track:
+        description: 'Play track (internal / alpha / beta / production)'
+        required: false
+        default: ''
+
+concurrency:
+  group: play-store
+  cancel-in-progress: false
+
+jobs:
+  bundle:
+    name: Build & upload to Google Play
+    runs-on: ubuntu-latest
+    env:
+      PACKAGE_NAME: com.dishaanhitech.erp_mobile
+      TRACK: ${{ github.event.inputs.track || vars.PLAY_TRACK || 'internal' }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.8'
+          channel: stable
+          cache: true
+
+      - name: Check signing secrets
+        env:
+          KS: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$KS" ]; then
+            echo "::error::ANDROID_KEYSTORE_BASE64 secret is missing — see docs/PLAY_STORE_SETUP.md"
+            exit 1
+          fi
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Test
+        run: flutter test --no-pub
+
+      - name: Restore keystore and Firebase config
+        env:
+          KS: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          GSJ: ${{ secrets.GOOGLE_SERVICES_JSON }}
+        run: |
+          echo "$KS" | base64 --decode > "$RUNNER_TEMP/upload.jks"
+          echo "ANDROID_KEYSTORE_PATH=$RUNNER_TEMP/upload.jks" >> "$GITHUB_ENV"
+          if [ -n "$GSJ" ]; then
+            echo "$GSJ" > android/app/google-services.json
+            echo "Firebase push: enabled"
+          else
+            echo "::warning::GOOGLE_SERVICES_JSON not set — app will use polling only (no instant push)"
+          fi
+
+      - name: Build signed App Bundle
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          # versionCode must grow with every upload → use the workflow run number
+          BUILD=$(( ${{ github.run_number }} + 100 ))
+          flutter build appbundle --release --build-number=$BUILD
+          echo "BUILD_NUMBER=$BUILD" >> "$GITHUB_ENV"
+
+      - name: Keep the bundle as a download (first upload is manual)
+        uses: actions/upload-artifact@v4
+        with:
+          name: prax-erp-${{ env.BUILD_NUMBER }}.aab
+          path: build/app/outputs/bundle/release/app-release.aab
+          retention-days: 30
+
+      - name: Check Play access
+        id: play
+        env:
+          SA: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+        run: |
+          if [ -z "$SA" ]; then
+            echo "::warning::PLAY_SERVICE_ACCOUNT_JSON not set — bundle built but not uploaded"
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Upload to Google Play (${{ env.TRACK }})
+        if: steps.play.outputs.ok == 'true'
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: ${{ env.PACKAGE_NAME }}
+          releaseFiles: build/app/outputs/bundle/release/app-release.aab
+          track: ${{ env.TRACK }}
+          status: completed
+          releaseName: ${{ env.BUILD_NUMBER }} (${{ github.sha }})

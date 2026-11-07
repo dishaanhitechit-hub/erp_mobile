@@ -11,3 +11,11 @@ GeneratedPluginRegistrant.java
 key.properties
 **/*.keystore
 **/*.jks
+
+# Firebase config + Play service account (public repo — never commit)
+**/google-services.json
+**/GoogleService-Info.plist
+**/play-service-account*.json
+
+# Android native build output
+.cxx/

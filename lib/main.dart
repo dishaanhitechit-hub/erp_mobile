@@ -3,13 +3,16 @@ import 'package:flutter/services.dart';
 import 'theme/app_theme.dart';
 import 'services/api_service.dart';
 import 'screens/auth/login_screen.dart';
-import 'screens/home/home_screen.dart';
+import 'screens/shell/main_shell.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
     statusBarColor: Colors.transparent,
-    statusBarIconBrightness: Brightness.light,
+    statusBarIconBrightness: Brightness.dark,
+    systemNavigationBarColor: Colors.transparent,
+    systemNavigationBarIconBrightness: Brightness.dark,
   ));
   await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
 
@@ -30,7 +33,7 @@ class ErpApp extends StatelessWidget {
       initialRoute: initialRoute,
       routes: {
         '/login': (_) => const LoginScreen(),
-        '/home':  (_) => const HomeScreen(),
+        '/home':  (_) => const MainShell(),
       },
     );
   }

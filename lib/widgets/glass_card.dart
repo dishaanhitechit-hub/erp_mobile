@@ -49,13 +49,13 @@ class StatusBadge extends StatelessWidget {
 
   static Color _colorForLabel(String label) {
     switch (label.toLowerCase()) {
-      case 'active': return const Color(0xFF06D6A0);
-      case 'inactive': case 'closed': return const Color(0xFFFF6B6B);
-      case 'pending': case 'draft': return const Color(0xFFFFD166);
-      case 'approved': case 'completed': return const Color(0xFF3D8EFF);
-      case 'bank': return const Color(0xFF3D8EFF);
-      case 'cash': return const Color(0xFF06D6A0);
-      default: return const Color(0xFF8BA5C5);
+      case 'active': return AppColors.accent2;
+      case 'inactive': case 'closed': return AppColors.accent3;
+      case 'pending': case 'draft': return AppColors.accent4;
+      case 'approved': case 'completed': return const Color(0xFF4A6378);
+      case 'bank': return const Color(0xFF4A6378);
+      case 'cash': return AppColors.accent2;
+      default: return AppColors.textSecondary;
     }
   }
 
@@ -115,9 +115,9 @@ class _ShimmerLoaderState extends State<ShimmerLoader> with SingleTickerProvider
             begin: Alignment(_anim.value - 1, 0),
             end: Alignment(_anim.value + 1, 0),
             colors: const [
-              Color(0xFF0E1E35),
-              Color(0xFF1A3050),
-              Color(0xFF0E1E35),
+              Color(0xFFEFE3D2),
+              Color(0xFFFAF3E8),
+              Color(0xFFEFE3D2),
             ],
           ),
         ),

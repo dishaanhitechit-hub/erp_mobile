@@ -38,3 +38,11 @@ build/
 
 # Web
 lib/generated_plugin_registrant.dart
+
+# Secrets (public repo)
+google-services.json
+GoogleService-Info.plist
+play-service-account*.json
+*.jks
+*.keystore
+key.properties
