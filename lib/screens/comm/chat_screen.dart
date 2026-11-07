@@ -1,11 +1,13 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../services/api_service.dart';
+import '../../services/call_service.dart';
 import '../../services/comm_api.dart';
 import '../../services/comm_notifier.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/pp_widgets.dart';
 import '../common/session.dart';
+import 'group_screens.dart';
 
 /// One conversation: message history, live updates (polling, like the web)
 /// and a send box.
@@ -29,6 +31,7 @@ class _ChatScreenState extends State<ChatScreen> {
   bool _loadingOlder = false;
   bool _sending = false;
   String? _error;
+  Map<String, dynamic>? _info; // type, members, myRole
 
   int? get _lastId => _messages.isEmpty ? null : _messages.last['id'] as int?;
 
@@ -36,6 +39,7 @@ class _ChatScreenState extends State<ChatScreen> {
   void initState() {
     super.initState();
     _load();
+    _loadInfo();
     _poll = Timer.periodic(const Duration(seconds: 3), (_) => _fetchNew());
     _scroll.addListener(() {
       if (_scroll.position.pixels >= _scroll.position.maxScrollExtent - 60) _loadOlder();
@@ -66,6 +70,28 @@ class _ChatScreenState extends State<ChatScreen> {
       _error = '$e';
     }
     if (mounted) setState(() => _loading = false);
+  }
+
+  Future<void> _loadInfo() async {
+    try {
+      final d = await CommApi.conversation(widget.conversationId);
+      if (mounted) setState(() => _info = d);
+    } catch (_) {}
+  }
+
+  List<Map<String, dynamic>> get _members =>
+      (_info?['members'] as List? ?? []).whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
+
+  void _call(bool video) => CallService.instance.startCall(context, _members, video: video);
+
+  Future<void> _openInfo() async {
+    final left = await Navigator.push<bool>(
+        context, MaterialPageRoute(builder: (_) => GroupInfoScreen(conversationId: widget.conversationId)));
+    if (left == true && mounted) {
+      Navigator.pop(context);
+    } else {
+      _loadInfo();
+    }
   }
 
   Future<void> _loadOlder() async {
@@ -112,7 +138,30 @@ class _ChatScreenState extends State<ChatScreen> {
     final msgs = _messages.reversed.toList(); // newest at the bottom (reverse list)
     return Scaffold(
       backgroundColor: AppColors.bg,
-      appBar: PPAppBar(title: widget.title, subtitle: widget.subtitle),
+      appBar: PPAppBar(
+        title: '${_info?['type'] == 'group' && _info?['name'] != null ? _info!['name'] : widget.title}',
+        subtitle: widget.subtitle ?? (_info?['type'] == 'group' ? '${_info?['memberCount'] ?? ''} members' : null),
+        actions: [
+          if (_members.length > 1) ...[
+            IconButton(
+              tooltip: 'Video call',
+              onPressed: () => _call(true),
+              icon: const Icon(Icons.videocam_rounded, color: Colors.white),
+            ),
+            IconButton(
+              tooltip: 'Voice call',
+              onPressed: () => _call(false),
+              icon: const Icon(Icons.call_rounded, color: Colors.white),
+            ),
+          ],
+          if (_info?['type'] == 'group')
+            IconButton(
+              tooltip: 'Group info',
+              onPressed: _openInfo,
+              icon: const Icon(Icons.info_outline_rounded, color: Colors.white),
+            ),
+        ],
+      ),
       body: Column(
         children: [
           Expanded(

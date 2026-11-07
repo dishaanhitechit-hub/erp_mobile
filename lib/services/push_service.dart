@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'api_service.dart';
+import 'call_service.dart';
 import 'comm_notifier.dart';
 
 // Uses classic FCM registration tokens (getToken/onTokenRefresh): the backend
@@ -45,7 +46,10 @@ class PushService {
     await fm.requestPermission();
 
     // App open: just refresh (the poller shows the notification)
-    FirebaseMessaging.onMessage.listen((_) => CommNotifier.instance.check());
+    FirebaseMessaging.onMessage.listen((m) {
+      if (m.data['type'] == 'incoming_call') CallService.instance.checkIncoming();
+      CommNotifier.instance.check();
+    });
     // Tapped a system notification
     FirebaseMessaging.onMessageOpenedApp.listen((_) => CommNotifier.instance.openComm.value++);
     if (await fm.getInitialMessage() != null) CommNotifier.instance.openComm.value++;
@@ -90,7 +94,7 @@ Future<void> firebaseBackgroundHandler(RemoteMessage message) async {
   );
   try {
     if (await ApiService.instance.isLoggedIn()) {
-      await CommNotifier.runCheck(plugin);
+      await CommNotifier.runCheck(plugin, ringCalls: message.data['type'] == 'incoming_call');
       return;
     }
   } catch (_) {/* fall through: show what the push carried */}

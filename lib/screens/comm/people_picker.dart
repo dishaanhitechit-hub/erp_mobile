@@ -15,9 +15,25 @@ Future<Map<String, dynamic>?> pickPerson(BuildContext context, {String title = '
   );
 }
 
+/// Multi-select version (new group, add members, add to call).
+/// Returns null when cancelled.
+Future<List<Map<String, dynamic>>?> pickPeople(BuildContext context,
+    {String title = 'Choose people', Set<int> exclude = const {}, String action = 'Done'}) {
+  return showModalBottomSheet<List<Map<String, dynamic>>>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: AppColors.bg,
+    shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+    builder: (_) => _PeopleSheet(title: title, multi: true, exclude: exclude, action: action),
+  );
+}
+
 class _PeopleSheet extends StatefulWidget {
   final String title;
-  const _PeopleSheet({required this.title});
+  final bool multi;
+  final Set<int> exclude;
+  final String action;
+  const _PeopleSheet({required this.title, this.multi = false, this.exclude = const {}, this.action = 'Done'});
   @override
   State<_PeopleSheet> createState() => _PeopleSheetState();
 }
@@ -27,6 +43,7 @@ class _PeopleSheetState extends State<_PeopleSheet> {
   bool _loading = true;
   String? _error;
   Timer? _debounce;
+  final _picked = <int, Map<String, dynamic>>{};
 
   @override
   void initState() {
@@ -46,7 +63,7 @@ class _PeopleSheetState extends State<_PeopleSheet> {
       final p = await CommApi.directory(q);
       if (mounted) {
         setState(() {
-          _people = p;
+          _people = p.where((x) => !widget.exclude.contains(x['userId'])).toList();
           _error = null;
         });
       }
@@ -68,9 +85,37 @@ class _PeopleSheetState extends State<_PeopleSheet> {
           const SizedBox(height: 10),
           Container(width: 40, height: 4, decoration: BoxDecoration(color: AppColors.textMuted, borderRadius: BorderRadius.circular(2))),
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
-            child: Text(widget.title, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+            padding: const EdgeInsets.fromLTRB(16, 8, 8, 4),
+            child: Row(children: [
+              Expanded(
+                child: Text(widget.title, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+              ),
+              if (widget.multi)
+                FilledButton(
+                  style: FilledButton.styleFrom(backgroundColor: AppColors.accent),
+                  onPressed: _picked.isEmpty ? null : () => Navigator.pop(context, _picked.values.toList()),
+                  child: Text(_picked.isEmpty ? widget.action : '${widget.action} (${_picked.length})'),
+                ),
+            ]),
           ),
+          if (widget.multi && _picked.isNotEmpty)
+            SizedBox(
+              height: 40,
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                children: [
+                  for (final p in _picked.values)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 6),
+                      child: InputChip(
+                        label: Text('${p['userName']}'),
+                        onDeleted: () => setState(() => _picked.remove(p['userId'])),
+                      ),
+                    ),
+                ],
+              ),
+            ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: TextField(
@@ -103,8 +148,17 @@ class _PeopleSheetState extends State<_PeopleSheet> {
                               final p = _people[i];
                               final name = '${p['userName'] ?? ''}';
                               final online = p['status'] == 'online';
+                              final id = p['userId'] as int;
+                              final sel = _picked.containsKey(id);
                               return ListTile(
-                                onTap: () => Navigator.pop(context, p),
+                                onTap: () {
+                                  if (!widget.multi) return Navigator.pop(context, p);
+                                  setState(() => sel ? _picked.remove(id) : _picked[id] = p);
+                                },
+                                trailing: widget.multi
+                                    ? Icon(sel ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded,
+                                        color: sel ? AppColors.accent : AppColors.textMuted)
+                                    : null,
                                 leading: PersonAvatar(name: name, online: online, colorIndex: i),
                                 title: Text(name, style: const TextStyle(fontWeight: FontWeight.w600)),
                                 subtitle: Text('${p['empCode'] ?? ''}${online ? ' • online' : ''}',

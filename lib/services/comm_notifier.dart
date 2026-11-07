@@ -6,6 +6,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:workmanager/workmanager.dart';
 import 'api_service.dart';
+import 'call_service.dart';
 import 'comm_api.dart';
 import 'push_service.dart';
 
@@ -77,11 +78,13 @@ class CommNotifier extends ChangeNotifier {
     _timer?.cancel();
     _timer = Timer.periodic(_interval, (_) => check());
     await check(); // seeds "already seen" before any push can arrive
+    CallService.instance.start(); // ringing screen for incoming calls
     unawaited(PushService.start()); // instant push when Firebase is configured
   }
 
   /// Call on logout while the login token is still valid.
   Future<void> stop() async {
+    CallService.instance.stop();
     await PushService.stop();
     _timer?.cancel();
     _timer = null;
@@ -109,7 +112,15 @@ class CommNotifier extends ChangeNotifier {
   }
 
   /// Shared by the foreground timer and the background task.
-  static Future<({int pings, int alerts, int chats})> runCheck(FlutterLocalNotificationsPlugin plugin) async {
+  /// [ringCalls]: also show a ringing notification for incoming calls (app in
+  /// background / closed — in the foreground the call screen opens instead).
+  static Future<({int pings, int alerts, int chats})> runCheck(FlutterLocalNotificationsPlugin plugin,
+      {bool ringCalls = false}) async {
+    if (ringCalls) {
+      try {
+        await CallService.ringIncoming(plugin);
+      } catch (_) {}
+    }
     final prefs = await SharedPreferences.getInstance();
     await prefs.reload();
     final seen = _Seen.load(prefs.getString(_seenKey));
@@ -131,6 +142,7 @@ class CommNotifier extends ChangeNotifier {
       final id = n['id'];
       if (id is! int || seen.alerts.contains(id)) continue;
       seen.alerts.add(id);
+      if (n['type'] == 'incoming_call') continue; // calls ring separately (see CallService)
       toShow.add((100000 + id, '${n['title'] ?? 'Notification'}', '${n['body'] ?? ''}'));
     }
 
@@ -229,7 +241,7 @@ void commBackgroundDispatcher() {
       if (!await ApiService.instance.isLoggedIn()) return true;
       final plugin = FlutterLocalNotificationsPlugin();
       await CommNotifier._initPlugin(plugin);
-      await CommNotifier.runCheck(plugin);
+      await CommNotifier.runCheck(plugin, ringCalls: true);
     } catch (_) {}
     return true;
   });

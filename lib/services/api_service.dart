@@ -170,6 +170,11 @@ class ApiService extends ChangeNotifier {
   Future<dynamic> post(String path, {Object? body}) =>
       _send('POST', path, body: body, token: _projectToken ?? _loginToken);
 
+  /// Generic PATCH / DELETE (JSON), used by group management.
+  Future<dynamic> patch(String path, {Object? body}) =>
+      _send('PATCH', path, body: body, token: _projectToken ?? _loginToken);
+  Future<dynamic> delete(String path) => _send('DELETE', path, token: _projectToken ?? _loginToken);
+
   /// Logged-in user's id (null before login).
   int? get userId {
     final id = _user?['id'];
@@ -182,9 +187,15 @@ class ApiService extends ChangeNotifier {
     if (params != null && params.isNotEmpty) uri = uri.replace(queryParameters: params);
     final http.Response res;
     try {
-      res = method == 'POST'
-          ? await http.post(uri, headers: _headers(token), body: jsonEncode(body ?? {})).timeout(_timeout)
-          : await http.get(uri, headers: _headers(token)).timeout(_timeout);
+      final h = _headers(token);
+      final b = jsonEncode(body ?? {});
+      res = await switch (method) {
+        'POST' => http.post(uri, headers: h, body: b),
+        'PATCH' => http.patch(uri, headers: h, body: b),
+        'DELETE' => http.delete(uri, headers: h),
+        _ => http.get(uri, headers: h),
+      }
+          .timeout(_timeout);
     } on TimeoutException {
       throw ApiException('Server is taking too long. Check your connection.', 408);
     } catch (_) {

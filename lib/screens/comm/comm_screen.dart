@@ -5,7 +5,9 @@ import '../../services/comm_notifier.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/pp_widgets.dart';
 import '../common/session.dart';
+import '../../services/call_service.dart';
 import 'chat_screen.dart';
+import 'group_screens.dart';
 import 'people_picker.dart';
 
 /// Communication tab — Chats, Pings, Alerts and Notices, same data as the
@@ -16,7 +18,7 @@ class CommScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
-      length: 4,
+      length: 5,
       child: Column(
         children: [
           Container(
@@ -44,6 +46,7 @@ class CommScreen extends StatelessWidget {
                     labelStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
                     tabs: [
                       _tab('Chats', n.unreadChats),
+                      _tab('Calls', 0),
                       _tab('Pings', n.unreadPings),
                       _tab('Alerts', n.unreadAlerts),
                       _tab('Notices', 0),
@@ -54,7 +57,7 @@ class CommScreen extends StatelessWidget {
             ]),
           ),
           const Expanded(
-            child: TabBarView(children: [_ChatsTab(), _PingsTab(), _AlertsTab(), _NoticesTab()]),
+            child: TabBarView(children: [_ChatsTab(), _CallsTab(), _PingsTab(), _AlertsTab(), _NoticesTab()]),
           ),
         ],
       ),
@@ -153,8 +156,83 @@ class _ChatsTab extends StatefulWidget {
 }
 
 class _ChatsTabState extends _LoaderState<_ChatsTab, List<Map<String, dynamic>>> {
+  List<Map<String, dynamic>> _invites = [];
+
   @override
-  Future<List<Map<String, dynamic>>> fetch() => CommApi.conversations();
+  Future<List<Map<String, dynamic>>> fetch() async {
+    final r = await Future.wait([CommApi.conversations(), CommApi.invites().catchError((_) => <Map<String, dynamic>>[])]);
+    _invites = r[1];
+    return r[0];
+  }
+
+  Future<void> _respond(Map<String, dynamic> inv, bool accept) async {
+    try {
+      await CommApi.respondInvite(inv['conversationId'] as int, accept);
+      await load();
+      if (accept && mounted) _open(inv['conversationId'] as int, '${inv['name']}');
+    } on ApiException catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+    }
+  }
+
+  void _newMenu() {
+    showModalBottomSheet(
+      context: context,
+      builder: (s) => SafeArea(
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          ListTile(
+            leading: const Icon(Icons.person_rounded, color: AppColors.accent),
+            title: const Text('New chat'),
+            onTap: () {
+              Navigator.pop(s);
+              _newChat();
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.group_add_rounded, color: AppColors.accent),
+            title: const Text('New group'),
+            onTap: () {
+              Navigator.pop(s);
+              _newGroup();
+            },
+          ),
+        ]),
+      ),
+    );
+  }
+
+  Future<void> _newGroup() async {
+    final r = await Navigator.push<(int, String)>(context, MaterialPageRoute(builder: (_) => const NewGroupScreen()));
+    if (r != null && mounted) _open(r.$1, r.$2);
+  }
+
+  Widget _invitesCard() => Card(
+        margin: const EdgeInsets.fromLTRB(12, 10, 12, 4),
+        color: AppColors.accent.withValues(alpha: 0.08),
+        elevation: 0,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        child: Column(children: [
+          for (final inv in _invites)
+            ListTile(
+              leading: const PersonAvatar(name: 'G', icon: Icons.group_add_rounded),
+              title: Text('${inv['name']}', style: const TextStyle(fontWeight: FontWeight.w700)),
+              subtitle: Text('${inv['invitedBy'] ?? 'Someone'} invited you • ${inv['memberCount'] ?? 0} members',
+                  style: const TextStyle(fontSize: 12)),
+              trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                IconButton(
+                  tooltip: 'Decline',
+                  onPressed: () => _respond(inv, false),
+                  icon: const Icon(Icons.close_rounded, color: Colors.red),
+                ),
+                IconButton(
+                  tooltip: 'Join',
+                  onPressed: () => _respond(inv, true),
+                  icon: const Icon(Icons.check_circle_rounded, color: Colors.green),
+                ),
+              ]),
+            ),
+        ]),
+      );
 
   @override
   void initState() {
@@ -202,15 +280,17 @@ class _ChatsTabState extends _LoaderState<_ChatsTab, List<Map<String, dynamic>>>
       floatingActionButton: FloatingActionButton(
         heroTag: 'newChat',
         backgroundColor: AppColors.accent,
-        onPressed: _newChat,
+        onPressed: _newMenu,
         child: const Icon(Icons.edit_square, color: Colors.white),
       ),
       body: wrap(
         (convs) => ListView.separated(
           padding: const EdgeInsets.only(top: 6, bottom: 90),
-          itemCount: convs.length,
+          itemCount: convs.length + (_invites.isEmpty ? 0 : 1),
           separatorBuilder: (_, __) => const Divider(height: 1, indent: 76),
-          itemBuilder: (_, i) {
+          itemBuilder: (_, idx) {
+            if (_invites.isNotEmpty && idx == 0) return _invitesCard();
+            final i = _invites.isEmpty ? idx : idx - 1;
             final c = convs[i];
             final name = '${c['name'] ?? 'Chat'}';
             final type = '${c['type']}';
@@ -252,6 +332,110 @@ class _ChatsTabState extends _LoaderState<_ChatsTab, List<Map<String, dynamic>>>
         ),
         emptyIcon: Icons.forum_outlined,
         emptyTitle: 'No chats yet — tap ✎ to start one',
+        isEmpty: (d) => d.isEmpty && _invites.isEmpty,
+      ),
+    );
+  }
+}
+
+// ── Calls ───────────────────────────────────────────────────────────────────
+
+class _CallsTab extends StatefulWidget {
+  const _CallsTab();
+  @override
+  State<_CallsTab> createState() => _CallsTabState();
+}
+
+class _CallsTabState extends _LoaderState<_CallsTab, List<Map<String, dynamic>>> {
+  @override
+  Future<List<Map<String, dynamic>>> fetch() => CommApi.callHistory();
+
+  List<Map<String, dynamic>> _others(Map<String, dynamic> c) => (c['participants'] as List? ?? [])
+      .whereType<Map>()
+      .map((e) => Map<String, dynamic>.from(e))
+      .where((p) => p['userId'] != ApiService.instance.userId)
+      .toList();
+
+  Future<void> _call(List<Map<String, dynamic>> people, bool video) async {
+    await CallService.instance.startCall(context, people, video: video);
+    load();
+  }
+
+  Future<void> _newCall(bool video) async {
+    final picked = await pickPeople(context, title: video ? 'New video call' : 'New voice call', action: 'Call',
+        exclude: {ApiService.instance.userId ?? 0});
+    if (picked != null && picked.isNotEmpty && mounted) _call(picked, video);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    final me = ApiService.instance.userId;
+    return Scaffold(
+      backgroundColor: AppColors.bg,
+      floatingActionButton: Column(mainAxisSize: MainAxisSize.min, children: [
+        FloatingActionButton.small(
+          heroTag: 'newVideoCall',
+          backgroundColor: AppColors.bgCard,
+          onPressed: () => _newCall(true),
+          child: const Icon(Icons.videocam_rounded, color: AppColors.accent),
+        ),
+        const SizedBox(height: 10),
+        FloatingActionButton(
+          heroTag: 'newCall',
+          backgroundColor: AppColors.accent,
+          onPressed: () => _newCall(false),
+          child: const Icon(Icons.add_call, color: Colors.white),
+        ),
+      ]),
+      body: wrap(
+        (calls) => ListView.separated(
+          padding: const EdgeInsets.only(top: 6, bottom: 140),
+          itemCount: calls.length,
+          separatorBuilder: (_, __) => const Divider(height: 1, indent: 76),
+          itemBuilder: (_, i) {
+            final c = calls[i];
+            final others = _others(c);
+            final video = c['callType'] == 'video';
+            final outgoing = c['initiatorId'] == me;
+            final mine = (c['participants'] as List? ?? []).whereType<Map>().where((p) => p['userId'] == me).firstOrNull;
+            final missed = !outgoing && ['missed', 'declined', 'ringing'].contains(mine?['state']);
+            final names = others.map((p) => '${p['userName'] ?? ''}').join(', ');
+            final secs = (c['durationSeconds'] as num?)?.toInt() ?? 0;
+            final dur = secs > 0 && !missed ? ' • ${secs ~/ 60}:${(secs % 60).toString().padLeft(2, '0')}' : '';
+            return ListTile(
+              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+              leading: PersonAvatar(
+                name: names,
+                colorIndex: i,
+                icon: others.length > 1 ? Icons.groups_rounded : null,
+              ),
+              title: Text(names.isEmpty ? 'Call' : names,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontWeight: FontWeight.w600, color: missed ? Colors.red : AppColors.textPrimary)),
+              subtitle: Row(children: [
+                Icon(
+                  missed ? Icons.call_missed_rounded : (outgoing ? Icons.call_made_rounded : Icons.call_received_rounded),
+                  size: 15,
+                  color: missed ? Colors.red : Colors.green,
+                ),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: Text('${CommApi.shortTime(c['startedAt'] as String?)}$dur',
+                      style: const TextStyle(fontSize: 12.5, color: AppColors.textSecondary)),
+                ),
+              ]),
+              trailing: IconButton(
+                tooltip: video ? 'Video call' : 'Voice call',
+                onPressed: others.isEmpty ? null : () => _call(others, video),
+                icon: Icon(video ? Icons.videocam_rounded : Icons.call_rounded, color: AppColors.accent),
+              ),
+            );
+          },
+        ),
+        emptyIcon: Icons.call_outlined,
+        emptyTitle: 'No calls yet — tap + to call someone',
         isEmpty: (d) => d.isEmpty,
       ),
     );

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'theme/app_theme.dart';
 import 'services/api_service.dart';
+import 'services/call_service.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/shell/main_shell.dart';
 
@@ -28,6 +29,7 @@ class ErpApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'PRAX ERP',
+      navigatorKey: appNavigatorKey,
       theme: AppTheme.theme,
       debugShowCheckedModeBanner: false,
       initialRoute: initialRoute,

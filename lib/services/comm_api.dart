@@ -32,6 +32,61 @@ class CommApi {
   static Future<void> sendMessage(int convId, String text) =>
       _api.post('$_c/conversations/$convId/messages', body: {'content': text, 'type': 'text'});
 
+  static Future<Map<String, dynamic>> conversation(int convId) async {
+    final r = await _get('/conversations/$convId');
+    return r is Map ? Map<String, dynamic>.from(r) : {};
+  }
+
+  // Groups
+  static Future<int> createGroup(String name, List<int> memberIds, {String? description}) async {
+    final r = await _api.post('$_c/conversations/group', body: {
+      'name': name,
+      'memberIds': memberIds,
+      if ((description ?? '').isNotEmpty) 'description': description,
+    });
+    return (r as Map)['conversationId'] as int;
+  }
+
+  static Future<void> inviteToGroup(int convId, List<int> userIds) =>
+      _api.post('$_c/conversations/$convId/invite', body: {'userIds': userIds});
+  static Future<void> removeMember(int convId, int userId) => _api.delete('$_c/conversations/$convId/members/$userId');
+  static Future<void> promoteMember(int convId, int userId) =>
+      _api.post('$_c/conversations/$convId/members/$userId/promote');
+  static Future<void> updateGroupInfo(int convId, {String? name, String? description}) => _api.patch(
+      '$_c/conversations/$convId/info',
+      body: {if (name != null) 'name': name, if (description != null) 'description': description});
+  static Future<void> leaveConversation(int convId) => _api.post('$_c/conversations/$convId/leave');
+  static Future<List<Map<String, dynamic>>> invites() async => _list(await _get('/invites'));
+  static Future<void> respondInvite(int convId, bool accept) =>
+      _api.post('$_c/invites/$convId/${accept ? 'accept' : 'decline'}');
+
+  // Calls (WebRTC signalling over REST, same protocol as the web CallPopup)
+  static Future<int> startCall(List<int> participantIds, {bool video = false}) async {
+    final r = await _api.post('$_c/calls', body: {'participantIds': participantIds, 'callType': video ? 'video' : 'voice'});
+    return (r as Map)['callId'] as int;
+  }
+
+  static Future<void> answerCall(int id) => _api.post('$_c/calls/$id/answer');
+  static Future<void> leaveCall(int id) => _api.post('$_c/calls/$id/leave');
+  static Future<void> inviteToCall(int id, List<int> userIds) => _api.post('$_c/calls/$id/invite', body: {'userIds': userIds});
+  static Future<Map<String, dynamic>?> callDetail(int id) async {
+    final r = await _get('/calls/$id');
+    return r is Map && r.isNotEmpty ? Map<String, dynamic>.from(r) : null;
+  }
+
+  static Future<List<Map<String, dynamic>>> incomingCalls() async => _list(await _get('/calls/incoming'));
+  static Future<List<Map<String, dynamic>>> callHistory() async => _list(await _get('/calls/history'));
+  static Future<void> sendSignal(int callId, int receiverId, String type, [Map<String, dynamic>? payload]) =>
+      _api.post('$_c/calls/$callId/signal', body: {'receiverId': receiverId, 'signalType': type, 'payload': payload ?? {}});
+  static Future<List<Map<String, dynamic>>> pollSignals(int callId) async => _list(await _get('/calls/$callId/signals'));
+  static Future<List<Map<String, dynamic>>> turnServers() async {
+    try {
+      return _list(await _get('/turn-credentials'), 'iceServers');
+    } catch (_) {
+      return [];
+    }
+  }
+
   // People
   static Future<List<Map<String, dynamic>>> directory([String? search]) async =>
       _list(await _get('/directory', (search ?? '').isEmpty ? null : {'search': search!}));
