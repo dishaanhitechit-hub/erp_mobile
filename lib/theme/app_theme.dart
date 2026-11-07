@@ -32,7 +32,7 @@ class AppColors {
 class AppTheme {
   static ThemeData get theme {
     final base = GoogleFonts.interTextTheme();
-    final serif = GoogleFonts.playfairDisplay;
+    const serif = GoogleFonts.playfairDisplay;
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.light,
