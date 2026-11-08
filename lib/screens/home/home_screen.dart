@@ -72,7 +72,7 @@ class _Header extends StatelessWidget {
     final name = api.userName;
     final p = api.currentProject;
     return Container(
-      decoration: const BoxDecoration(gradient: AppTheme.headerGradient),
+      decoration: BoxDecoration(gradient: AppTheme.headerGradient),
       padding: EdgeInsets.fromLTRB(16, MediaQuery.of(context).padding.top + 10, 8, 52),
       child: Row(
         children: [
@@ -137,14 +137,14 @@ class _ProjectBanner extends StatelessWidget {
                 children: [
                   Text(project == null ? 'No project selected' : '${project!['projectName'] ?? project!['projectCode']}',
                       maxLines: 1, overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(color: AppColors.textPrimary, fontSize: 15, fontWeight: FontWeight.w700)),
+                      style: TextStyle(color: AppColors.textPrimary, fontSize: 15, fontWeight: FontWeight.w700)),
                   const SizedBox(height: 2),
                   Text(
                     project == null
                         ? 'Pick a project to see its records'
                         : [project!['projectCode'], if (project!['clientName'] != null) project!['clientName']].join(' • '),
                     maxLines: 1, overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: AppColors.textSecondary, fontSize: 12.5),
+                    style: TextStyle(color: AppColors.textSecondary, fontSize: 12.5),
                   ),
                 ],
               ),

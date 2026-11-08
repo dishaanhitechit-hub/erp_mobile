@@ -86,13 +86,13 @@ class _NewGroupScreenState extends State<NewGroupScreen> {
         const SizedBox(height: 20),
         Row(children: [
           Text('Members (${_members.length})',
-              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: AppColors.textPrimary)),
+              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: AppColors.textPrimary)),
           const Spacer(),
           TextButton.icon(onPressed: _add, icon: const Icon(Icons.person_add_alt_1_rounded), label: const Text('Add')),
         ]),
         if (_members.isEmpty)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 20),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 20),
             child: Text('No members yet. They get an invite to join the group.',
                 textAlign: TextAlign.center, style: TextStyle(color: AppColors.textSecondary)),
           ),
@@ -284,7 +284,7 @@ class _GroupInfoScreenState extends State<GroupInfoScreen> {
       body: info == null
           ? (_error != null
               ? EmptyState(icon: Icons.cloud_off_rounded, title: 'Could not load group', message: _error)
-              : const Center(child: CircularProgressIndicator(color: AppColors.accent)))
+              : Center(child: CircularProgressIndicator(color: AppColors.accent)))
           : RefreshIndicator(
               onRefresh: _load,
               color: AppColors.accent,
@@ -294,13 +294,13 @@ class _GroupInfoScreenState extends State<GroupInfoScreen> {
                 const SizedBox(height: 12),
                 Center(
                   child: Text('${info['name'] ?? 'Group'}',
-                      style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w800, color: AppColors.textPrimary)),
+                      style: TextStyle(fontSize: 21, fontWeight: FontWeight.w800, color: AppColors.textPrimary)),
                 ),
                 if ('${info['description'] ?? ''}'.isNotEmpty)
                   Padding(
                     padding: const EdgeInsets.fromLTRB(30, 6, 30, 0),
                     child: Text('${info['description']}',
-                        textAlign: TextAlign.center, style: const TextStyle(color: AppColors.textSecondary)),
+                        textAlign: TextAlign.center, style: TextStyle(color: AppColors.textSecondary)),
                   ),
                 const SizedBox(height: 16),
                 Row(mainAxisAlignment: MainAxisAlignment.center, children: [
@@ -322,7 +322,7 @@ class _GroupInfoScreenState extends State<GroupInfoScreen> {
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                   child: Text('${members.length} members',
-                      style: const TextStyle(fontWeight: FontWeight.w700, color: AppColors.textSecondary)),
+                      style: TextStyle(fontWeight: FontWeight.w700, color: AppColors.textSecondary)),
                 ),
                 for (final (i, m) in members.indexed)
                   ListTile(
@@ -340,7 +340,7 @@ class _GroupInfoScreenState extends State<GroupInfoScreen> {
                               color: AppColors.accent.withValues(alpha: 0.12),
                               borderRadius: BorderRadius.circular(8),
                             ),
-                            child: const Text('Admin',
+                            child: Text('Admin',
                                 style: TextStyle(color: AppColors.accent, fontSize: 11.5, fontWeight: FontWeight.w700)),
                           )
                         : null,

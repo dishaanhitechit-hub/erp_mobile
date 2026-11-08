@@ -88,7 +88,7 @@ class _PeopleSheetState extends State<_PeopleSheet> {
             padding: const EdgeInsets.fromLTRB(16, 8, 8, 4),
             child: Row(children: [
               Expanded(
-                child: Text(widget.title, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+                child: Text(widget.title, style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
               ),
               if (widget.multi)
                 FilledButton(
@@ -136,7 +136,7 @@ class _PeopleSheetState extends State<_PeopleSheet> {
           const SizedBox(height: 8),
           Expanded(
             child: _loading
-                ? const Center(child: CircularProgressIndicator(color: AppColors.accent))
+                ? Center(child: CircularProgressIndicator(color: AppColors.accent))
                 : _error != null
                     ? EmptyState(icon: Icons.cloud_off_rounded, title: 'Could not load people', message: _error)
                     : _people.isEmpty
@@ -162,7 +162,7 @@ class _PeopleSheetState extends State<_PeopleSheet> {
                                 leading: PersonAvatar(name: name, online: online, colorIndex: i),
                                 title: Text(name, style: const TextStyle(fontWeight: FontWeight.w600)),
                                 subtitle: Text('${p['empCode'] ?? ''}${online ? ' • online' : ''}',
-                                    style: const TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+                                    style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
                               );
                             },
                           ),

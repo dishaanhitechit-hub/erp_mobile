@@ -22,7 +22,7 @@ class CommScreen extends StatelessWidget {
       child: Column(
         children: [
           Container(
-            decoration: const BoxDecoration(gradient: AppTheme.headerGradient),
+            decoration: BoxDecoration(gradient: AppTheme.headerGradient),
             padding: EdgeInsets.only(top: MediaQuery.of(context).padding.top),
             child: Column(children: [
               const SizedBox(
@@ -131,7 +131,7 @@ abstract class _LoaderState<T extends StatefulWidget, D> extends State<T> with A
   }
 
   Widget wrap(Widget Function(D data) builder, {required IconData emptyIcon, required String emptyTitle, bool Function(D)? isEmpty}) {
-    if (loading && data == null) return const Center(child: CircularProgressIndicator(color: AppColors.accent));
+    if (loading && data == null) return Center(child: CircularProgressIndicator(color: AppColors.accent));
     Widget child;
     if (error != null && data == null) {
       child = ListView(children: [
@@ -181,7 +181,7 @@ class _ChatsTabState extends _LoaderState<_ChatsTab, List<Map<String, dynamic>>>
       builder: (s) => SafeArea(
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           ListTile(
-            leading: const Icon(Icons.person_rounded, color: AppColors.accent),
+            leading: Icon(Icons.person_rounded, color: AppColors.accent),
             title: const Text('New chat'),
             onTap: () {
               Navigator.pop(s);
@@ -189,7 +189,7 @@ class _ChatsTabState extends _LoaderState<_ChatsTab, List<Map<String, dynamic>>>
             },
           ),
           ListTile(
-            leading: const Icon(Icons.group_add_rounded, color: AppColors.accent),
+            leading: Icon(Icons.group_add_rounded, color: AppColors.accent),
             title: const Text('New group'),
             onTap: () {
               Navigator.pop(s);
@@ -317,8 +317,8 @@ class _ChatsTabState extends _LoaderState<_ChatsTab, List<Map<String, dynamic>>>
                     style: TextStyle(fontSize: 11.5, color: unread > 0 ? AppColors.accent : AppColors.textMuted)),
               ]),
               subtitle: Row(children: [
-                if (c['isMuted'] == true) const Padding(
-                  padding: EdgeInsets.only(right: 4),
+                if (c['isMuted'] == true) Padding(
+                  padding: const EdgeInsets.only(right: 4),
                   child: Icon(Icons.volume_off_rounded, size: 14, color: AppColors.textMuted),
                 ),
                 Expanded(
@@ -378,7 +378,7 @@ class _CallsTabState extends _LoaderState<_CallsTab, List<Map<String, dynamic>>>
           heroTag: 'newVideoCall',
           backgroundColor: AppColors.bgCard,
           onPressed: () => _newCall(true),
-          child: const Icon(Icons.videocam_rounded, color: AppColors.accent),
+          child: Icon(Icons.videocam_rounded, color: AppColors.accent),
         ),
         const SizedBox(height: 10),
         FloatingActionButton(
@@ -423,7 +423,7 @@ class _CallsTabState extends _LoaderState<_CallsTab, List<Map<String, dynamic>>>
                 const SizedBox(width: 4),
                 Expanded(
                   child: Text('${CommApi.shortTime(c['startedAt'] as String?)}$dur',
-                      style: const TextStyle(fontSize: 12.5, color: AppColors.textSecondary)),
+                      style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary)),
                 ),
               ]),
               trailing: IconButton(
@@ -517,7 +517,7 @@ class _PingsTabState extends _LoaderState<_PingsTab, (List<Map<String, dynamic>>
                   await CommApi.markAllPingsRead();
                   load();
                 },
-                icon: const Icon(Icons.done_all_rounded, color: AppColors.accent),
+                icon: Icon(Icons.done_all_rounded, color: AppColors.accent),
               ),
           ]),
         ),
@@ -571,7 +571,7 @@ class _PingCard extends StatelessWidget {
             child: Text(who, maxLines: 1, overflow: TextOverflow.ellipsis,
                 style: TextStyle(fontWeight: unread ? FontWeight.w800 : FontWeight.w600)),
           ),
-          Text(CommApi.shortTime(ping['createdAt'] as String?), style: const TextStyle(fontSize: 11.5, color: AppColors.textMuted)),
+          Text(CommApi.shortTime(ping['createdAt'] as String?), style: TextStyle(fontSize: 11.5, color: AppColors.textMuted)),
         ]),
         subtitle: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           const SizedBox(height: 4),
@@ -582,12 +582,12 @@ class _PingCard extends StatelessWidget {
           if ((ping['message'] ?? '').toString().isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(top: 5),
-              child: Text('${ping['message']}', style: const TextStyle(color: AppColors.textPrimary, fontSize: 13.5)),
+              child: Text('${ping['message']}', style: TextStyle(color: AppColors.textPrimary, fontSize: 13.5)),
             ),
           if (record.isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(top: 3),
-              child: Text(record, style: const TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+              child: Text(record, style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
             ),
         ]),
         trailing: unread
@@ -632,9 +632,12 @@ class _SendPingSheetState extends State<_SendPingSheet> {
     if (_to == null) return;
     setState(() => _sending = true);
     try {
-      await CommApi.sendPing(_to!['userId'] as int, _type, _msg.text.trim());
+      final queued = await CommApi.sendPing(_to!['userId'] as int, _type, _msg.text.trim());
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Ping sent to ${_to!['userName']}')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(queued
+              ? 'No internet — ping to ${_to!['userName']} will be sent when you are back online'
+              : 'Ping sent to ${_to!['userName']}')));
       Navigator.pop(context, true);
     } on ApiException catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
@@ -655,7 +658,7 @@ class _SendPingSheetState extends State<_SendPingSheet> {
           borderRadius: BorderRadius.circular(12),
           child: ListTile(
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            leading: const Icon(Icons.person_rounded, color: AppColors.accent),
+            leading: Icon(Icons.person_rounded, color: AppColors.accent),
             title: Text(_to == null ? 'Choose person' : '${_to!['userName']}'),
             subtitle: _to == null ? null : Text('${_to!['empCode'] ?? ''}'),
             trailing: const Icon(Icons.chevron_right_rounded),
@@ -767,7 +770,7 @@ class _AlertsTabState extends _LoaderState<_AlertsTab, List<Map<String, dynamic>
               subtitle: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 if ((n['body'] ?? '').toString().isNotEmpty) Text('${n['body']}'),
                 const SizedBox(height: 2),
-                Text(CommApi.shortTime(n['createdAt'] as String?), style: const TextStyle(fontSize: 11, color: AppColors.textMuted)),
+                Text(CommApi.shortTime(n['createdAt'] as String?), style: TextStyle(fontSize: 11, color: AppColors.textMuted)),
               ]),
               trailing: unread
                   ? Container(width: 10, height: 10, decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle))
@@ -829,9 +832,9 @@ class _NoticesTabState extends _LoaderState<_NoticesTab, List<Map<String, dynami
                   if (unread) Container(width: 9, height: 9, decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle)),
                 ]),
                 const SizedBox(height: 8),
-                Text('${a['body'] ?? ''}', style: const TextStyle(color: AppColors.textPrimary, height: 1.35)),
+                Text('${a['body'] ?? ''}', style: TextStyle(color: AppColors.textPrimary, height: 1.35)),
                 const SizedBox(height: 8),
-                Text(CommApi.shortTime(a['createdAt'] as String?), style: const TextStyle(fontSize: 11, color: AppColors.textMuted)),
+                Text(CommApi.shortTime(a['createdAt'] as String?), style: TextStyle(fontSize: 11, color: AppColors.textMuted)),
               ]),
             ),
           );

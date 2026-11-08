@@ -1,6 +1,7 @@
 // PhonePe-style reusable widgets: section cards with icon grids, module tiles,
 // headers and the project chip.
 import 'package:flutter/material.dart';
+import '../services/offline_store.dart';
 import '../config/module_registry.dart';
 import '../screens/common/module_router.dart';
 import '../services/api_service.dart';
@@ -116,7 +117,7 @@ class SectionCard extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(title,
-                    style: const TextStyle(color: AppColors.textPrimary, fontSize: 15.5, fontWeight: FontWeight.w700)),
+                    style: TextStyle(color: AppColors.textPrimary, fontSize: 15.5, fontWeight: FontWeight.w700)),
               ),
               if (actionLabel != null)
                 GestureDetector(
@@ -128,8 +129,8 @@ class SectionCard extends StatelessWidget {
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Row(mainAxisSize: MainAxisSize.min, children: [
-                      Text(actionLabel!, style: const TextStyle(color: AppColors.accent, fontSize: 12, fontWeight: FontWeight.w600)),
-                      const Icon(Icons.chevron_right_rounded, size: 16, color: AppColors.accent),
+                      Text(actionLabel!, style: TextStyle(color: AppColors.accent, fontSize: 12, fontWeight: FontWeight.w600)),
+                      Icon(Icons.chevron_right_rounded, size: 16, color: AppColors.accent),
                     ]),
                   ),
                 ),
@@ -156,7 +157,7 @@ class PPAppBar extends StatelessWidget implements PreferredSizeWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: const BoxDecoration(gradient: AppTheme.headerGradient),
+      decoration: BoxDecoration(gradient: AppTheme.headerGradient),
       child: SafeArea(
         bottom: false,
         child: SizedBox(
@@ -217,11 +218,11 @@ class EmptyState extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             Text(title, textAlign: TextAlign.center,
-                style: const TextStyle(color: AppColors.textPrimary, fontSize: 16, fontWeight: FontWeight.w700)),
+                style: TextStyle(color: AppColors.textPrimary, fontSize: 16, fontWeight: FontWeight.w700)),
             if (message != null) ...[
               const SizedBox(height: 6),
               Text(message!, textAlign: TextAlign.center,
-                  style: const TextStyle(color: AppColors.textSecondary, fontSize: 13, height: 1.4)),
+                  style: TextStyle(color: AppColors.textSecondary, fontSize: 13, height: 1.4)),
             ],
             if (action != null) ...[const SizedBox(height: 18), action!],
           ],
@@ -249,7 +250,7 @@ class UserAvatar extends StatelessWidget {
     final url = api.profilePhotoUrl;
     return CircleAvatar(
       radius: radius,
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.palette.isDark ? AppColors.inputFill : Colors.white,
       child: url == null
           ? initial
           : ClipOval(
@@ -266,3 +267,20 @@ class UserAvatar extends StatelessWidget {
   }
 }
 
+
+
+/// "Offline copy • saved 2 h ago" line under a header.
+class SavedCopyNote extends StatelessWidget {
+  final DateTime savedAt;
+  const SavedCopyNote({super.key, required this.savedAt});
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.only(top: 10),
+        child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+          Icon(Icons.offline_pin_rounded, size: 15, color: AppColors.textMuted),
+          const SizedBox(width: 5),
+          Text('Offline copy • saved ${savedAgo(savedAt)}', style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
+        ]),
+      );
+}

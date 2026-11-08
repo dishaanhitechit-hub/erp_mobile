@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import '../../config/module_registry.dart';
 import '../../services/api_service.dart';
+import '../../services/offline_store.dart';
 import '../../services/record_utils.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/glass_card.dart';
 import '../../widgets/pp_widgets.dart';
+import 'print_view_screen.dart';
 import 'session.dart';
 
 /// Record detail (PhonePe "transaction details" style). Shows the list row
@@ -20,6 +22,7 @@ class DetailScreen extends StatefulWidget {
 class _DetailScreenState extends State<DetailScreen> {
   late Map<String, dynamic> _data = widget.record;
   bool _loading = false;
+  DateTime? _savedAt; // set when showing the offline copy
 
   ErpModule get m => widget.module;
 
@@ -27,14 +30,30 @@ class _DetailScreenState extends State<DetailScreen> {
   void initState() {
     super.initState();
     _load();
+    NetworkStatus.instance.backOnline.addListener(_load);
   }
+
+  @override
+  void dispose() {
+    NetworkStatus.instance.backOnline.removeListener(_load);
+    super.dispose();
+  }
+
+  String get _docTitle {
+    final tk = RecordUtils.titleKey(_data, m.titleKey);
+    return tk == null ? m.title : '${m.title} ${RecordUtils.text(_data, tk)}';
+  }
+
+  void _openDoc() => openDocumentView(context, m, _data, title: _docTitle);
 
   Future<void> _load() async {
     final id = widget.record[m.idKey];
     if (m.detail == null || id == null) return;
     setState(() => _loading = true);
     try {
-      final d = await ApiService.instance.get('${m.detail}/$id', projectScoped: false);
+      DateTime? saved;
+      final d = await ApiService.instance.get('${m.detail}/$id', projectScoped: false, onCached: (t) => saved = t);
+      if (mounted) setState(() => _savedAt = saved);
       final rec = d is List ? (d.isNotEmpty ? d.first : null) : d;
       if (rec is Map && mounted) setState(() => _data = {...widget.record, ...Map<String, dynamic>.from(rec)});
     } on ApiException catch (e) {
@@ -60,6 +79,11 @@ class _DetailScreenState extends State<DetailScreen> {
         title: m.title,
         subtitle: m.canEdit ? null : (m.canApprove ? 'Approver • view only' : 'View only'),
         actions: [
+          IconButton(
+            tooltip: 'View PDF',
+            icon: const Icon(Icons.picture_as_pdf_rounded, color: Colors.white),
+            onPressed: _openDoc,
+          ),
           if (m.canEdit)
             IconButton(
               icon: const Icon(Icons.edit_rounded, color: Colors.white),
@@ -87,16 +111,16 @@ class _DetailScreenState extends State<DetailScreen> {
                   ),
                   const SizedBox(height: 12),
                   Text(tk == null ? m.title : RecordUtils.text(_data, tk), textAlign: TextAlign.center,
-                      style: const TextStyle(color: AppColors.textPrimary, fontSize: 18, fontWeight: FontWeight.w700)),
+                      style: TextStyle(color: AppColors.textPrimary, fontSize: 18, fontWeight: FontWeight.w700)),
                   if (sk != null) ...[
                     const SizedBox(height: 4),
                     Text(RecordUtils.text(_data, sk), textAlign: TextAlign.center,
-                        style: const TextStyle(color: AppColors.textSecondary, fontSize: 13.5)),
+                        style: TextStyle(color: AppColors.textSecondary, fontSize: 13.5)),
                   ],
                   if (ak != null) ...[
                     const SizedBox(height: 12),
                     Text(RecordUtils.money(_data[ak]),
-                        style: const TextStyle(color: AppColors.textPrimary, fontSize: 28, fontWeight: FontWeight.w800)),
+                        style: TextStyle(color: AppColors.textPrimary, fontSize: 28, fontWeight: FontWeight.w800)),
                   ],
                   const SizedBox(height: 10),
                   Wrap(
@@ -106,9 +130,9 @@ class _DetailScreenState extends State<DetailScreen> {
                       if (stk != null) StatusBadge('${_data[stk]}'),
                       if (dk != null)
                         Row(mainAxisSize: MainAxisSize.min, children: [
-                          const Icon(Icons.schedule_rounded, size: 14, color: AppColors.textMuted),
+                          Icon(Icons.schedule_rounded, size: 14, color: AppColors.textMuted),
                           const SizedBox(width: 4),
-                          Text(RecordUtils.text(_data, dk), style: const TextStyle(color: AppColors.textMuted, fontSize: 12)),
+                          Text(RecordUtils.text(_data, dk), style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
                         ]),
                     ],
                   ),
@@ -116,6 +140,22 @@ class _DetailScreenState extends State<DetailScreen> {
               ),
             ),
             if (_loading) const Padding(padding: EdgeInsets.only(top: 12), child: LinearProgressIndicator(minHeight: 2)),
+            if (_savedAt != null) SavedCopyNote(savedAt: _savedAt!),
+            const SizedBox(height: 12),
+            SizedBox(
+              height: 46,
+              child: FilledButton.icon(
+                onPressed: _openDoc,
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppColors.accent,
+                  foregroundColor: AppColors.onAccent,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                ),
+                icon: const Icon(Icons.picture_as_pdf_rounded, size: 20),
+                label: Text(printRoutes.containsKey(m.key) ? 'View PDF' : 'View as PDF',
+                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14.5)),
+              ),
+            ),
             const SizedBox(height: 12),
             FieldsView(data: _data),
           ],
@@ -179,17 +219,17 @@ class _Row extends StatelessWidget {
   Widget build(BuildContext context) => Container(
         padding: const EdgeInsets.symmetric(vertical: 10),
         decoration: BoxDecoration(
-          border: last ? null : const Border(bottom: BorderSide(color: Color(0x147B4A2A))),
+          border: last ? null : Border(bottom: BorderSide(color: AppColors.divider)),
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(flex: 4, child: Text(label, style: const TextStyle(color: AppColors.textMuted, fontSize: 12.5))),
+            Expanded(flex: 4, child: Text(label, style: TextStyle(color: AppColors.textMuted, fontSize: 12.5))),
             const SizedBox(width: 12),
             Expanded(
               flex: 6,
               child: SelectableText(value, textAlign: TextAlign.right,
-                  style: const TextStyle(color: AppColors.textPrimary, fontSize: 13.5, fontWeight: FontWeight.w500)),
+                  style: TextStyle(color: AppColors.textPrimary, fontSize: 13.5, fontWeight: FontWeight.w500)),
             ),
           ],
         ),
@@ -214,7 +254,7 @@ class _ListSection extends StatelessWidget {
           iconColor: AppColors.accent,
           collapsedIconColor: AppColors.textMuted,
           title: Text('$title (${items.length})',
-              style: const TextStyle(color: AppColors.textPrimary, fontSize: 15, fontWeight: FontWeight.w700)),
+              style: TextStyle(color: AppColors.textPrimary, fontSize: 15, fontWeight: FontWeight.w700)),
           childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
           children: maps.isEmpty
               ? [Align(alignment: Alignment.centerLeft, child: Text(items.join(', ')))]
@@ -235,7 +275,7 @@ class _ListSection extends StatelessWidget {
                               child: Text(
                                 RecordUtils.text(maps[i], RecordUtils.titleKey(maps[i])),
                                 maxLines: 1, overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w600),
+                                style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w600),
                               ),
                             ),
                           ]),

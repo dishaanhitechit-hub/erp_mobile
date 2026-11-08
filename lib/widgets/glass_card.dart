@@ -52,7 +52,7 @@ class StatusBadge extends StatelessWidget {
       case 'active': return AppColors.accent2;
       case 'inactive': case 'closed': return AppColors.accent3;
       case 'pending': case 'draft': return AppColors.accent4;
-      case 'approved': case 'completed': return const Color(0xFF4A6378);
+      case 'approved': case 'completed': return AppColors.palette.isDark ? const Color(0xFF8FB3D9) : const Color(0xFF4A6378);
       case 'bank': return const Color(0xFF4A6378);
       case 'cash': return AppColors.accent2;
       default: return AppColors.textSecondary;
@@ -114,11 +114,7 @@ class _ShimmerLoaderState extends State<ShimmerLoader> with SingleTickerProvider
           gradient: LinearGradient(
             begin: Alignment(_anim.value - 1, 0),
             end: Alignment(_anim.value + 1, 0),
-            colors: const [
-              Color(0xFFEFE3D2),
-              Color(0xFFFAF3E8),
-              Color(0xFFEFE3D2),
-            ],
+            colors: [AppColors.shimmerBase, AppColors.shimmerHighlight, AppColors.shimmerBase],
           ),
         ),
       ),

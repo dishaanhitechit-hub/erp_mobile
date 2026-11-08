@@ -68,7 +68,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                       const SizedBox(height: 16),
                       Text('PRAX ERP', style: GoogleFonts.playfairDisplay(color: AppColors.textPrimary, fontSize: 34, fontWeight: FontWeight.w800, letterSpacing: 1.5)),
                       const SizedBox(height: 8),
-                      const Text('CONSTRUCTION MANAGEMENT SYSTEM', style: TextStyle(color: AppColors.textSecondary, fontSize: 11.5, fontWeight: FontWeight.w600, letterSpacing: 2.2)),
+                      Text('CONSTRUCTION MANAGEMENT SYSTEM', style: TextStyle(color: AppColors.textSecondary, fontSize: 11.5, fontWeight: FontWeight.w600, letterSpacing: 2.2)),
                     ],
                   ),
                 ),
@@ -85,7 +85,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                         children: [
                           Text('Welcome back', style: GoogleFonts.playfairDisplay(color: AppColors.textPrimary, fontSize: 24, fontWeight: FontWeight.w700)),
                           const SizedBox(height: 4),
-                          const Text('Sign in to continue', style: TextStyle(color: AppColors.textSecondary, fontSize: 14)),
+                          Text('Sign in to continue', style: TextStyle(color: AppColors.textSecondary, fontSize: 14)),
                           const SizedBox(height: 28),
                           if (_error != null) ...[
                             Container(
@@ -97,9 +97,9 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                               ),
                               child: Row(
                                 children: [
-                                  const Icon(Icons.error_outline_rounded, color: AppColors.accent3, size: 18),
+                                  Icon(Icons.error_outline_rounded, color: AppColors.accent3, size: 18),
                                   const SizedBox(width: 10),
-                                  Expanded(child: Text(_error!, style: const TextStyle(color: AppColors.accent3, fontSize: 13))),
+                                  Expanded(child: Text(_error!, style: TextStyle(color: AppColors.accent3, fontSize: 13))),
                                 ],
                               ),
                             ),
@@ -135,7 +135,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                   ),
                 ),
                 const SizedBox(height: 40),
-                const Text('Dishaan Hi-tech (India) Pvt. Ltd.', style: TextStyle(color: AppColors.textMuted, fontSize: 12, letterSpacing: 0.3)),
+                Text('Dishaan Hi-tech (India) Pvt. Ltd.', style: TextStyle(color: AppColors.textMuted, fontSize: 12, letterSpacing: 0.3)),
                 const SizedBox(height: 20),
               ],
             ),
@@ -157,7 +157,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       controller: controller,
       keyboardType: type,
       obscureText: obscure,
-      style: const TextStyle(color: AppColors.textPrimary, fontSize: 15),
+      style: TextStyle(color: AppColors.textPrimary, fontSize: 15),
       decoration: InputDecoration(
         hintText: hint,
         prefixIcon: Icon(icon, color: AppColors.textMuted, size: 20),

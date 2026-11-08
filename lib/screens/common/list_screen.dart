@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../config/module_registry.dart';
 import '../../services/api_service.dart';
+import '../../services/offline_store.dart';
 import '../../services/record_utils.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/glass_card.dart';
@@ -22,6 +23,7 @@ class _ListScreenState extends State<ListScreen> {
   String? _error;
   String _q = '';
   String? _status;
+  DateTime? _savedAt; // set when showing the offline copy
   final _searchCtrl = TextEditingController();
 
   ErpModule get m => widget.module;
@@ -30,10 +32,12 @@ class _ListScreenState extends State<ListScreen> {
   void initState() {
     super.initState();
     _load();
+    NetworkStatus.instance.backOnline.addListener(_load);
   }
 
   @override
   void dispose() {
+    NetworkStatus.instance.backOnline.removeListener(_load);
     _searchCtrl.dispose();
     super.dispose();
   }
@@ -41,8 +45,10 @@ class _ListScreenState extends State<ListScreen> {
   Future<void> _load() async {
     setState(() { _error = null; if (_all.isEmpty) _loading = true; });
     try {
-      final data = await ApiService.instance.get(m.endpoint!, params: m.params, projectScoped: m.projectScoped);
-      if (mounted) setState(() { _all = RecordUtils.extractList(data); _loading = false; });
+      DateTime? saved;
+      final data = await ApiService.instance
+          .get(m.endpoint!, params: m.params, projectScoped: m.projectScoped, onCached: (t) => saved = t);
+      if (mounted) setState(() { _all = RecordUtils.extractList(data); _loading = false; _savedAt = saved; });
     } on ApiException catch (e) {
       if (e.code == 401 && mounted) return handleSessionExpired(context);
       if (mounted) setState(() { _error = e.message; _loading = false; });
@@ -101,6 +107,7 @@ class _ListScreenState extends State<ListScreen> {
       body: Column(
         children: [
           _searchBar(),
+          if (_savedAt != null) Padding(padding: const EdgeInsets.only(bottom: 4), child: SavedCopyNote(savedAt: _savedAt!)),
           if (_statuses.length > 1) _statusChips(),
           Expanded(child: _body(items)),
         ],
@@ -114,22 +121,22 @@ class _ListScreenState extends State<ListScreen> {
         child: TextField(
           controller: _searchCtrl,
           onChanged: (v) => setState(() => _q = v.trim().toLowerCase()),
-          style: const TextStyle(color: AppColors.textPrimary, fontSize: 14),
+          style: TextStyle(color: AppColors.textPrimary, fontSize: 14),
           decoration: InputDecoration(
             hintText: 'Search in ${m.title}',
             filled: true,
             fillColor: AppColors.bgCard,
-            prefixIcon: const Icon(Icons.search_rounded, color: AppColors.textMuted, size: 20),
+            prefixIcon: Icon(Icons.search_rounded, color: AppColors.textMuted, size: 20),
             suffixIcon: _q.isNotEmpty
                 ? IconButton(
-                    icon: const Icon(Icons.close_rounded, size: 18, color: AppColors.textMuted),
+                    icon: Icon(Icons.close_rounded, size: 18, color: AppColors.textMuted),
                     onPressed: () => setState(() { _searchCtrl.clear(); _q = ''; }))
                 : null,
             contentPadding: const EdgeInsets.symmetric(vertical: 12),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(30), borderSide: BorderSide.none),
             enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(30), borderSide: BorderSide.none),
             focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(30),
-                borderSide: const BorderSide(color: AppColors.accent, width: 1.2)),
+                borderSide: BorderSide(color: AppColors.accent, width: 1.2)),
           ),
         ),
       );
@@ -181,7 +188,7 @@ class _ListScreenState extends State<ListScreen> {
           onPressed: _load,
           icon: const Icon(Icons.refresh_rounded),
           label: const Text('Retry'),
-          style: OutlinedButton.styleFrom(foregroundColor: AppColors.accent, side: const BorderSide(color: AppColors.accent)),
+          style: OutlinedButton.styleFrom(foregroundColor: AppColors.accent, side: BorderSide(color: AppColors.accent)),
         ),
       );
     }
@@ -254,16 +261,16 @@ class RecordTile extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(title, maxLines: 1, overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(color: AppColors.textPrimary, fontSize: 14.5, fontWeight: FontWeight.w600)),
+                          style: TextStyle(color: AppColors.textPrimary, fontSize: 14.5, fontWeight: FontWeight.w600)),
                       if (sk != null) ...[
                         const SizedBox(height: 2),
                         Text(RecordUtils.text(record, sk), maxLines: 1, overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(color: AppColors.textSecondary, fontSize: 12.5)),
+                            style: TextStyle(color: AppColors.textSecondary, fontSize: 12.5)),
                       ],
                       if (dk != null) ...[
                         const SizedBox(height: 4),
                         Text(RecordUtils.text(record, dk),
-                            style: const TextStyle(color: AppColors.textMuted, fontSize: 11)),
+                            style: TextStyle(color: AppColors.textMuted, fontSize: 11)),
                       ],
                     ],
                   ),
@@ -274,12 +281,12 @@ class RecordTile extends StatelessWidget {
                   children: [
                     if (ak != null)
                       Text(RecordUtils.money(record[ak]),
-                          style: const TextStyle(color: AppColors.textPrimary, fontSize: 14, fontWeight: FontWeight.w700)),
+                          style: TextStyle(color: AppColors.textPrimary, fontSize: 14, fontWeight: FontWeight.w700)),
                     if (stk != null) ...[
                       if (ak != null) const SizedBox(height: 6),
                       StatusBadge('${record[stk]}'),
                     ],
-                    if (ak == null && stk == null) const Icon(Icons.chevron_right_rounded, color: AppColors.textMuted),
+                    if (ak == null && stk == null) Icon(Icons.chevron_right_rounded, color: AppColors.textMuted),
                   ],
                 ),
               ],

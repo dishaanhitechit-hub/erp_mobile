@@ -6,12 +6,23 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../config/access_control.dart';
 import '../config/api.dart';
 import 'comm_notifier.dart';
+import 'offline_sync.dart';
+import 'offline_store.dart';
 
 /// Flow (same as the web app):
 ///   login → pick project → POST /project/enter/{code} → project-scoped token
 ///   every module call sends `projectCode` + the project token.
 class ApiService extends ChangeNotifier {
-  ApiService._();
+  ApiService._() {
+    Outbox.instance.sender = (item) async {
+      try {
+        await _send(item.method, item.path, body: item.body, token: _projectToken ?? _loginToken);
+      } on ApiException catch (e) {
+        if (e.code == 0 || e.code == 408) throw const OfflineException();
+        rethrow;
+      }
+    };
+  }
   static final instance = ApiService._();
 
   static const _timeout = Duration(seconds: 30);
@@ -125,16 +136,19 @@ class ApiService extends ChangeNotifier {
     AccessControl.serverPermissions = {};
     AccessControl.role = '';
     final prefs = await SharedPreferences.getInstance();
-    for (final k in ['token', 'projectToken', 'user', 'project', 'permissions']) {
+    for (final k in ['token', 'projectToken', 'user', 'project', 'permissions', OfflineSync.lastSyncKey]) {
       await prefs.remove(k);
     }
+    await OfflineStore.instance.clear();
+    await Outbox.instance.clear();
     notifyListeners();
   }
 
   // ── Projects ──────────────────────────────────────────────────────────────
 
   Future<List<Map<String, dynamic>>> projects() async {
-    final data = await _send('GET', ApiConfig.projectList, token: _loginToken, allow404: true);
+    final data = await _cached('GET ${ApiConfig.projectList}',
+        () => _send('GET', ApiConfig.projectList, token: _loginToken, allow404: true));
     if (data is! List) return [];
     return data.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
   }
@@ -159,16 +173,57 @@ class ApiService extends ChangeNotifier {
 
   // ── Generic GET used by every module ──────────────────────────────────────
 
-  Future<dynamic> get(String path, {Map<String, String>? params, bool projectScoped = true}) {
+  /// Saved copies are used when offline. [onCached] is told when the answer
+  /// came from the saved copy (and how old it is).
+  Future<dynamic> get(String path,
+      {Map<String, String>? params, bool projectScoped = true, void Function(DateTime savedAt)? onCached}) {
     final q = <String, String>{...?params};
     if (projectScoped && projectCode != null) q['projectCode'] = projectCode!;
     // The backend answers "no records" with 404 + empty data, so treat it as empty.
-    return _send('GET', path, params: q, token: _projectToken ?? _loginToken, allow404: true);
+    Future<dynamic> fetch() => _send('GET', path, params: q, token: _projectToken ?? _loginToken, allow404: true);
+    if (!_cacheable(path)) return fetch();
+    final keys = q.keys.toList()..sort();
+    final key = 'GET $path?${[for (final k in keys) '$k=${q[k]}'].join('&')}';
+    return _cached(key, fetch, onCached: onCached);
+  }
+
+  /// Live-only endpoints (call signalling, counters) are never saved.
+  static bool _cacheable(String path) =>
+      !path.contains('/calls') && !path.contains('/messages/new') && !path.contains('unread-count') &&
+      !path.contains('/turn-credentials');
+
+  /// Run [fetch]; save the answer. If the server can't be reached, return the saved copy.
+  Future<dynamic> _cached(String key, Future<dynamic> Function() fetch,
+      {void Function(DateTime savedAt)? onCached}) async {
+    final userKey = 'u${_user?['id']}|$key';
+    try {
+      final data = await fetch();
+      unawaited(OfflineStore.instance.put(userKey, data));
+      return data;
+    } on ApiException catch (e) {
+      if (e.code != 0 && e.code != 408) rethrow;
+      final saved = await OfflineStore.instance.get(userKey);
+      if (saved == null) {
+        throw ApiException('You are offline and this page is not saved on the phone yet. '
+            'Open it once with internet, or use "Sync for offline" in Profile.', e.code);
+      }
+      onCached?.call(saved.savedAt);
+      return saved.data;
+    }
   }
 
   /// Generic POST (JSON) with the project token if there is one.
-  Future<dynamic> post(String path, {Object? body}) =>
-      _send('POST', path, body: body, token: _projectToken ?? _loginToken);
+  /// With [queueOffline], a POST made without internet is saved and sent
+  /// automatically later; it then returns `{'queued': true}`.
+  Future<dynamic> post(String path, {Object? body, bool queueOffline = false, String label = '', String? tag}) async {
+    try {
+      return await _send('POST', path, body: body, token: _projectToken ?? _loginToken);
+    } on ApiException catch (e) {
+      if (!queueOffline || (e.code != 0 && e.code != 408)) rethrow;
+      await Outbox.instance.add('POST', path, Map<String, dynamic>.from(body as Map? ?? {}), label: label, tag: tag);
+      return {'queued': true};
+    }
+  }
 
   /// Generic PATCH / DELETE (JSON), used by group management.
   Future<dynamic> patch(String path, {Object? body}) =>
@@ -197,10 +252,13 @@ class ApiService extends ChangeNotifier {
       }
           .timeout(_timeout);
     } on TimeoutException {
+      NetworkStatus.instance.markOffline();
       throw ApiException('Server is taking too long. Check your connection.', 408);
     } catch (_) {
+      NetworkStatus.instance.markOffline();
       throw ApiException('Could not reach the server. Check your internet.', 0);
     }
+    NetworkStatus.instance.markOnline();
     dynamic decoded;
     try {
       decoded = jsonDecode(res.body);

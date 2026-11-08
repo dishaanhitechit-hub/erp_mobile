@@ -20,7 +20,7 @@ class ModulesScreen extends StatelessWidget {
     if (sections.isEmpty) {
       return Column(children: [
         Container(
-          decoration: const BoxDecoration(gradient: AppTheme.headerGradient),
+          decoration: BoxDecoration(gradient: AppTheme.headerGradient),
           padding: EdgeInsets.fromLTRB(16, MediaQuery.of(context).padding.top + 14, 16, 16),
           alignment: Alignment.centerLeft,
           child: const Text('All Modules', style: TextStyle(color: Colors.white, fontSize: 19, fontWeight: FontWeight.w700)),
@@ -38,7 +38,7 @@ class ModulesScreen extends StatelessWidget {
       child: Column(
         children: [
           Container(
-            decoration: const BoxDecoration(gradient: AppTheme.headerGradient),
+            decoration: BoxDecoration(gradient: AppTheme.headerGradient),
             padding: EdgeInsets.only(top: MediaQuery.of(context).padding.top),
             child: Column(
               children: [

@@ -8,6 +8,8 @@ import '../project/project_picker.dart';
 import '../search/search_screen.dart';
 import '../comm/comm_screen.dart';
 import '../../services/comm_notifier.dart';
+import '../../services/offline_store.dart';
+import '../../services/offline_sync.dart';
 
 /// Bottom-nav shell (PhonePe layout: 4 tabs + raised centre action).
 class MainShell extends StatefulWidget {
@@ -16,7 +18,7 @@ class MainShell extends StatefulWidget {
   State<MainShell> createState() => _MainShellState();
 }
 
-class _MainShellState extends State<MainShell> {
+class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
   int _tab = 0;
 
   @override
@@ -31,10 +33,23 @@ class _MainShellState extends State<MainShell> {
     // Unread badges + phone notifications for pings/messages from web or other phones
     CommNotifier.instance.start();
     CommNotifier.instance.openComm.addListener(_openComm);
+    // Offline: send anything queued and refresh the saved copy in the background.
+    WidgetsBinding.instance.addObserver(this);
+    Outbox.instance.flush();
+    Future.delayed(const Duration(seconds: 8), OfflineSync.instance.autoSync);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      Outbox.instance.flush();
+      OfflineSync.instance.autoSync();
+    }
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     CommNotifier.instance.openComm.removeListener(_openComm);
     super.dispose();
   }
@@ -89,9 +104,9 @@ class _MainShellState extends State<MainShell> {
             children: [
               _item(0, Icons.home_rounded, 'Home'),
               _item(1, Icons.grid_view_rounded, 'Modules'),
-              const Expanded(
+              Expanded(
                 child: Padding(
-                  padding: EdgeInsets.only(top: 34),
+                  padding: const EdgeInsets.only(top: 34),
                   child: Text('Project',
                       textAlign: TextAlign.center,
                       style: TextStyle(

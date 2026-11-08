@@ -29,8 +29,13 @@ class CommApi {
   static Future<List<Map<String, dynamic>>> newMessages(int convId, int? afterId) async =>
       _list(await _get('/conversations/$convId/messages/new', afterId != null ? {'afterId': '$afterId'} : null));
 
-  static Future<void> sendMessage(int convId, String text) =>
-      _api.post('$_c/conversations/$convId/messages', body: {'content': text, 'type': 'text'});
+  /// Returns true when there was no internet and the message was queued
+  /// (it is sent automatically once back online).
+  static Future<bool> sendMessage(int convId, String text) async {
+    final r = await _api.post('$_c/conversations/$convId/messages',
+        body: {'content': text, 'type': 'text'}, queueOffline: true, label: 'Message', tag: 'chat:$convId');
+    return r is Map && r['queued'] == true;
+  }
 
   static Future<Map<String, dynamic>> conversation(int convId) async {
     final r = await _get('/conversations/$convId');
@@ -108,8 +113,13 @@ class CommApi {
     return r is Map ? (r['count'] as num? ?? 0).toInt() : 0;
   }
 
-  static Future<void> sendPing(int receiverId, String type, String? message) => _api.post('$_c/pings',
-      body: {'receiverId': receiverId, 'pingType': type, if ((message ?? '').isNotEmpty) 'message': message});
+  /// Returns true when queued offline.
+  static Future<bool> sendPing(int receiverId, String type, String? message) async {
+    final r = await _api.post('$_c/pings',
+        body: {'receiverId': receiverId, 'pingType': type, if ((message ?? '').isNotEmpty) 'message': message},
+        queueOffline: true, label: pingTypes[type] ?? 'Ping', tag: 'ping');
+    return r is Map && r['queued'] == true;
+  }
   static Future<void> markPingRead(int id) => _api.post('$_c/pings/$id/read');
   static Future<void> markAllPingsRead() => _api.post('$_c/pings/read-all');
 

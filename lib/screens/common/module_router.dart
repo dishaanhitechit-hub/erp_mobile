@@ -55,9 +55,9 @@ void _comingSoon(BuildContext context, ErpModule m) {
               child: Icon(m.icon, color: AppColors.accent, size: 30),
             ),
             const SizedBox(height: 14),
-            Text(m.title, style: const TextStyle(color: AppColors.textPrimary, fontSize: 18, fontWeight: FontWeight.w700)),
+            Text(m.title, style: TextStyle(color: AppColors.textPrimary, fontSize: 18, fontWeight: FontWeight.w700)),
             const SizedBox(height: 6),
-            const Text('Coming soon to mobile.\nUse the web ERP for this module for now.',
+            Text('Coming soon to mobile.\nUse the web ERP for this module for now.',
                 textAlign: TextAlign.center, style: TextStyle(color: AppColors.textSecondary, height: 1.4)),
             const SizedBox(height: 20),
             SizedBox(

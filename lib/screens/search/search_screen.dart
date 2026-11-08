@@ -35,17 +35,17 @@ class _SearchScreenState extends State<SearchScreen> {
     return Column(
       children: [
         Container(
-          decoration: const BoxDecoration(gradient: AppTheme.headerGradient),
+          decoration: BoxDecoration(gradient: AppTheme.headerGradient),
           padding: EdgeInsets.fromLTRB(12, MediaQuery.of(context).padding.top + 10, 12, 14),
           child: TextField(
             autofocus: false,
             onChanged: (v) => setState(() => _q = v.trim().toLowerCase()),
-            style: const TextStyle(color: AppColors.textPrimary),
+            style: TextStyle(color: AppColors.textPrimary),
             decoration: InputDecoration(
               hintText: 'Search modules — indent, GRN, payroll…',
               filled: true,
               fillColor: AppColors.bgCard,
-              prefixIcon: const Icon(Icons.search_rounded, color: AppColors.textMuted),
+              prefixIcon: Icon(Icons.search_rounded, color: AppColors.textMuted),
               contentPadding: const EdgeInsets.symmetric(vertical: 12),
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(30), borderSide: BorderSide.none),
               enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(30), borderSide: BorderSide.none),
@@ -77,12 +77,12 @@ class _SearchScreenState extends State<SearchScreen> {
                           ),
                           child: Icon(m.icon, color: m.available ? Colors.white : AppColors.textMuted, size: 20),
                         ),
-                        title: Text(m.title, style: const TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w600)),
+                        title: Text(m.title, style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w600)),
                         subtitle: Text(g.title == s.title ? s.title : '${s.title} › ${g.title}',
-                            style: const TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+                            style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
                         trailing: m.available
-                            ? const Icon(Icons.chevron_right_rounded, color: AppColors.textMuted)
-                            : const Text('Soon', style: TextStyle(color: AppColors.accent4, fontSize: 12, fontWeight: FontWeight.w700)),
+                            ? Icon(Icons.chevron_right_rounded, color: AppColors.textMuted)
+                            : Text('Soon', style: TextStyle(color: AppColors.accent4, fontSize: 12, fontWeight: FontWeight.w700)),
                       ),
                     );
                   },

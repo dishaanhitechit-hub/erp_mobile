@@ -4,6 +4,7 @@ import '../../services/api_service.dart';
 import '../../services/call_service.dart';
 import '../../services/comm_api.dart';
 import '../../services/comm_notifier.dart';
+import '../../services/offline_store.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/pp_widgets.dart';
 import '../common/session.dart';
@@ -44,10 +45,31 @@ class _ChatScreenState extends State<ChatScreen> {
     _scroll.addListener(() {
       if (_scroll.position.pixels >= _scroll.position.maxScrollExtent - 60) _loadOlder();
     });
+    Outbox.instance.addListener(_onOutbox);
+    Outbox.instance.delivered.addListener(_fetchNew);
+    NetworkStatus.instance.backOnline.addListener(_onBackOnline);
   }
+
+  void _onOutbox() {
+    if (mounted) setState(() {});
+  }
+
+  void _onBackOnline() {
+    if (_error != null) _load();
+    _loadInfo();
+  }
+
+  /// Messages typed offline, shown with a clock until they are sent.
+  List<Map<String, dynamic>> get _pending => [
+        for (final i in Outbox.instance.withTag('chat:${widget.conversationId}'))
+          {'id': 'p${i.id}', 'isMine': true, 'type': 'text', 'content': i.body['content'], 'pending': true},
+      ];
 
   @override
   void dispose() {
+    Outbox.instance.removeListener(_onOutbox);
+    Outbox.instance.delivered.removeListener(_fetchNew);
+    NetworkStatus.instance.backOnline.removeListener(_onBackOnline);
     _poll?.cancel();
     _input.dispose();
     _scroll.dispose();
@@ -120,9 +142,9 @@ class _ChatScreenState extends State<ChatScreen> {
     if (text.isEmpty || _sending) return;
     setState(() => _sending = true);
     try {
-      await CommApi.sendMessage(widget.conversationId, text);
+      final queued = await CommApi.sendMessage(widget.conversationId, text);
       _input.clear();
-      await _fetchNew();
+      if (!queued) await _fetchNew();
     } on ApiException catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
     } finally {
@@ -135,7 +157,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final msgs = _messages.reversed.toList(); // newest at the bottom (reverse list)
+    final msgs = [..._messages, ..._pending].reversed.toList(); // newest at the bottom (reverse list)
     return Scaffold(
       backgroundColor: AppColors.bg,
       appBar: PPAppBar(
@@ -166,7 +188,7 @@ class _ChatScreenState extends State<ChatScreen> {
         children: [
           Expanded(
             child: _loading
-                ? const Center(child: CircularProgressIndicator(color: AppColors.accent))
+                ? Center(child: CircularProgressIndicator(color: AppColors.accent))
                 : _error != null
                     ? EmptyState(icon: Icons.cloud_off_rounded, title: 'Could not load messages', message: _error)
                     : msgs.isEmpty
@@ -249,7 +271,7 @@ class _Bubble extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.only(bottom: 3),
           child: Text('${msg['senderName'] ?? ''}',
-              style: const TextStyle(color: AppColors.accent, fontSize: 12, fontWeight: FontWeight.w700)),
+              style: TextStyle(color: AppColors.accent, fontSize: 12, fontWeight: FontWeight.w700)),
         ),
       if (reply is Map)
         Container(
@@ -258,10 +280,10 @@ class _Bubble extends StatelessWidget {
           decoration: BoxDecoration(
             color: Colors.black.withValues(alpha: 0.05),
             borderRadius: BorderRadius.circular(8),
-            border: const Border(left: BorderSide(color: AppColors.accent, width: 3)),
+            border: Border(left: BorderSide(color: AppColors.accent, width: 3)),
           ),
           child: Text('${reply['senderName'] ?? ''}: ${reply['content'] ?? reply['fileName'] ?? ''}',
-              maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+              maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
         ),
       if (isImage)
         ClipRRect(
@@ -274,13 +296,19 @@ class _Bubble extends StatelessWidget {
       if (text.isNotEmpty && !(fileUrl != null && text == msg['fileName']))
         Padding(
           padding: EdgeInsets.only(top: fileUrl != null ? 5 : 0),
-          child: Text(text, style: const TextStyle(color: AppColors.textPrimary, fontSize: 14.5, height: 1.3)),
+          child: Text(text, style: TextStyle(color: AppColors.textPrimary, fontSize: 14.5, height: 1.3)),
         ),
       const SizedBox(height: 3),
       Align(
         alignment: Alignment.bottomRight,
-        child: Text(CommApi.shortTime(msg['sentAt'] as String?),
-            style: const TextStyle(color: AppColors.textMuted, fontSize: 10.5)),
+        child: msg['pending'] == true
+            ? Row(mainAxisSize: MainAxisSize.min, children: [
+                Icon(Icons.schedule_rounded, size: 12, color: AppColors.textMuted),
+                const SizedBox(width: 3),
+                Text('Waiting for internet', style: TextStyle(color: AppColors.textMuted, fontSize: 10.5)),
+              ])
+            : Text(CommApi.shortTime(msg['sentAt'] as String?),
+                style: TextStyle(color: AppColors.textMuted, fontSize: 10.5)),
       ),
     ];
 
@@ -318,7 +346,7 @@ class _FileChip extends StatelessWidget {
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.05), borderRadius: BorderRadius.circular(8)),
       child: Row(mainAxisSize: MainAxisSize.min, children: [
-        const Icon(Icons.insert_drive_file_rounded, color: AppColors.accent, size: 22),
+        Icon(Icons.insert_drive_file_rounded, color: AppColors.accent, size: 22),
         const SizedBox(width: 6),
         Flexible(
           child: Text(
