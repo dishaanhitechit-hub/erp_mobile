@@ -9,6 +9,7 @@ import '../search/search_screen.dart';
 import '../comm/comm_screen.dart';
 import '../../services/comm_notifier.dart';
 import '../../services/offline_store.dart';
+import '../../services/dpr_queue.dart';
 import '../../services/offline_sync.dart';
 
 /// Bottom-nav shell (PhonePe layout: 4 tabs + raised centre action).
@@ -42,8 +43,12 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
+      CommNotifier.instance.sendHeartbeat(); // back to "online, app open"
       Outbox.instance.flush();
+      DprQueue.instance.flush();
       OfflineSync.instance.autoSync();
+    } else if (state == AppLifecycleState.paused) {
+      CommNotifier.instance.sendHeartbeat(); // "online, in background"
     }
   }
 

@@ -92,6 +92,11 @@ class CommApi {
     }
   }
 
+  /// "I'm here" for online status in chat. [background]: app minimised or
+  /// closed but still reachable by push (the server keeps it online longer).
+  static Future<void> heartbeat({bool background = false}) =>
+      _api.post('$_c/heartbeat', body: {'source': background ? 'app_bg' : 'app'});
+
   // People
   static Future<List<Map<String, dynamic>>> directory([String? search]) async =>
       _list(await _get('/directory', (search ?? '').isEmpty ? null : {'search': search!}));

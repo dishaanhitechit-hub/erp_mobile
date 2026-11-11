@@ -36,6 +36,7 @@ class _IncomingCallScreenState extends State<IncomingCallScreen> {
   @override
   void initState() {
     super.initState();
+    CallLockScreen.enter();
     _buzz = Timer.periodic(const Duration(milliseconds: 1200), (_) => HapticFeedback.heavyImpact());
     _poll = Timer.periodic(const Duration(seconds: 2), (_) => _checkStillRinging());
     CallService.ring(widget.call); // ringtone (cancelled on accept / decline / timeout)
@@ -46,6 +47,7 @@ class _IncomingCallScreenState extends State<IncomingCallScreen> {
     _poll?.cancel();
     _buzz?.cancel();
     CallService.cancelRingNotification(_id);
+    CallLockScreen.leave();
     super.dispose();
   }
 
@@ -148,6 +150,7 @@ class _CallScreenState extends State<CallScreen> {
   @override
   void initState() {
     super.initState();
+    CallLockScreen.enter();
     _call = MeshCall(
       callId: widget.callId,
       isVideo: widget.video,
@@ -180,6 +183,7 @@ class _CallScreenState extends State<CallScreen> {
     _call.removeListener(_onChange);
     if (_call.endedReason == null) _call.hangUp();
     _call.dispose();
+    CallLockScreen.leave();
     super.dispose();
   }
 

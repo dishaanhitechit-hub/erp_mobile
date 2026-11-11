@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'theme/app_theme.dart';
 import 'services/api_service.dart';
 import 'services/call_service.dart';
+import 'services/dpr_queue.dart';
 import 'services/offline_store.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/shell/main_shell.dart';
@@ -17,6 +18,7 @@ void main() async {
   final loggedIn = await ApiService.instance.isLoggedIn();
   await Outbox.instance.load();
   NetworkStatus.instance.start();
+  DprQueue.instance.start(); // site photos taken offline upload when back online
   runApp(ErpApp(initialRoute: loggedIn ? '/home' : '/login'));
 }
 

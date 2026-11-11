@@ -225,6 +225,44 @@ class ApiService extends ChangeNotifier {
     }
   }
 
+  Future<dynamic> put(String path, {Object? body}) =>
+      _send('PUT', path, body: body, token: _projectToken ?? _loginToken);
+
+  /// multipart/form-data POST (photo uploads). [files] are (field name, file path).
+  /// Throws [ApiException] with code 0 / 408 when the server can't be reached.
+  Future<dynamic> uploadFiles(String path,
+      {Map<String, String> fields = const {}, List<(String, String)> files = const [],
+      Duration timeout = const Duration(minutes: 2)}) async {
+    final req = http.MultipartRequest('POST', Uri.parse('${ApiConfig.baseUrl}$path'));
+    final token = _projectToken ?? _loginToken;
+    if (token != null) req.headers['Authorization'] = 'Bearer $token';
+    req.fields.addAll(fields);
+    for (final (field, filePath) in files) {
+      req.files.add(await http.MultipartFile.fromPath(field, filePath));
+    }
+    final http.Response res;
+    try {
+      res = await http.Response.fromStream(await req.send().timeout(timeout));
+    } on TimeoutException {
+      NetworkStatus.instance.markOffline();
+      throw ApiException('Upload is taking too long. Check your connection.', 408);
+    } catch (_) {
+      NetworkStatus.instance.markOffline();
+      throw ApiException('Could not reach the server. Check your internet.', 0);
+    }
+    NetworkStatus.instance.markOnline();
+    dynamic decoded;
+    try {
+      decoded = jsonDecode(res.body);
+    } catch (_) {
+      decoded = null;
+    }
+    final msg = decoded is Map ? (decoded['message'] ?? decoded['msg'])?.toString() : null;
+    if (res.statusCode == 401 || res.statusCode == 422) throw ApiException('Session expired. Please log in again.', 401);
+    if (res.statusCode >= 400) throw ApiException(msg ?? 'Upload failed (${res.statusCode})', res.statusCode);
+    return decoded is Map && decoded.containsKey('data') ? decoded['data'] : decoded;
+  }
+
   /// Generic PATCH / DELETE (JSON), used by group management.
   Future<dynamic> patch(String path, {Object? body}) =>
       _send('PATCH', path, body: body, token: _projectToken ?? _loginToken);
@@ -247,6 +285,7 @@ class ApiService extends ChangeNotifier {
       res = await switch (method) {
         'POST' => http.post(uri, headers: h, body: b),
         'PATCH' => http.patch(uri, headers: h, body: b),
+        'PUT' => http.put(uri, headers: h, body: b),
         'DELETE' => http.delete(uri, headers: h),
         _ => http.get(uri, headers: h),
       }

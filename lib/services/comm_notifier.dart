@@ -8,6 +8,9 @@ import 'package:workmanager/workmanager.dart';
 import 'api_service.dart';
 import 'call_service.dart';
 import 'comm_api.dart';
+import 'dpr_queue.dart';
+import 'offline_store.dart';
+import 'offline_sync.dart';
 import 'push_service.dart';
 
 /// Unread counts for the Communication tab + phone notifications for new
@@ -27,6 +30,7 @@ class CommNotifier extends ChangeNotifier {
 
   final _plugin = FlutterLocalNotificationsPlugin();
   Timer? _timer;
+  Timer? _heartbeat;
   bool _ready = false;
 
   int unreadPings = 0;
@@ -77,6 +81,10 @@ class CommNotifier extends ChangeNotifier {
     } catch (_) {}
     _timer?.cancel();
     _timer = Timer.periodic(_interval, (_) => check());
+    // Online status in chat: check in every 45 s while the app is running.
+    _heartbeat?.cancel();
+    _heartbeat = Timer.periodic(const Duration(seconds: 45), (_) => sendHeartbeat());
+    unawaited(sendHeartbeat());
     await check(); // seeds "already seen" before any push can arrive
     CallService.instance.start(); // ringing screen for incoming calls
     unawaited(PushService.start()); // instant push when Firebase is configured
@@ -88,10 +96,26 @@ class CommNotifier extends ChangeNotifier {
     await PushService.stop();
     _timer?.cancel();
     _timer = null;
+    _heartbeat?.cancel();
+    _heartbeat = null;
     unreadPings = unreadAlerts = unreadChats = 0;
     notifyListeners();
     try {
       await Workmanager().cancelByUniqueName(_bgTask);
+    } catch (_) {}
+  }
+
+  // ── Online status ────────────────────────────────────────────────────────
+
+  /// Check in for online status: "app" while it's on screen, "app_bg" when it
+  /// is minimised (others then keep seeing you online for ~20 minutes, renewed
+  /// by the background job and by pushes).
+  Future<void> sendHeartbeat() async {
+    if (ApiService.instance.userId == null) return;
+    final state = WidgetsBinding.instance.lifecycleState;
+    final background = state != null && state != AppLifecycleState.resumed;
+    try {
+      await CommApi.heartbeat(background: background);
     } catch (_) {}
   }
 
@@ -243,6 +267,28 @@ void commBackgroundDispatcher() {
       await CommNotifier._initPlugin(plugin);
       await CommNotifier.runCheck(plugin, ringCalls: true);
     } catch (_) {}
+    await backgroundRefresh();
     return true;
   });
+}
+
+/// Work done while the app is closed (background job about every 15 min, and
+/// whenever a push wakes the app): stay "online" in chat, send anything that
+/// was saved offline, and keep the offline copy fresh. Each step on its own.
+Future<void> backgroundRefresh() async {
+  try {
+    if (!await ApiService.instance.isLoggedIn()) return;
+  } catch (_) {
+    return;
+  }
+  Future<void> step(Future<void> Function() f) async {
+    try {
+      await f();
+    } catch (_) {}
+  }
+
+  await step(() => CommApi.heartbeat(background: true));
+  await step(() => Outbox.instance.flush()); // chat messages / pings typed offline
+  await step(() => DprQueue.instance.flush()); // site photos taken offline
+  await step(() => OfflineSync.instance.autoSync()); // saved data (every 6 h; details on Wi-Fi)
 }

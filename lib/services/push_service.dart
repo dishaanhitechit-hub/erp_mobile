@@ -6,6 +6,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'api_service.dart';
 import 'call_service.dart';
+import 'comm_api.dart';
 import 'comm_notifier.dart';
 
 // Uses classic FCM registration tokens (getToken/onTokenRefresh): the backend
@@ -95,6 +96,10 @@ Future<void> firebaseBackgroundHandler(RemoteMessage message) async {
   try {
     if (await ApiService.instance.isLoggedIn()) {
       await CommNotifier.runCheck(plugin, ringCalls: message.data['type'] == 'incoming_call');
+      // Reached by push → still online in chat; send anything saved offline.
+      try {
+        await CommApi.heartbeat(background: true);
+      } catch (_) {}
       return;
     }
   } catch (_) {/* fall through: show what the push carried */}

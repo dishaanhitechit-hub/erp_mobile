@@ -6,8 +6,10 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import 'package:webview_flutter_android/webview_flutter_android.dart';
 import '../../config/api.dart';
 import '../../config/module_registry.dart';
+import '../../services/api_service.dart';
 import '../../services/record_utils.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/pp_widgets.dart';
@@ -38,6 +40,7 @@ const printRoutes = <String, String>{
   'credit_note': 'credit-note',
   'journal': 'journal-entry',
   'petty_cash': 'petty-cash-docket',
+  'daily_progress_report': 'dpr',
 };
 
 String? _uuidOf(Map<String, dynamic> data) {
@@ -77,11 +80,101 @@ String _fileName(String title) => '${title.replaceAll(RegExp(r'[^A-Za-z0-9_-]+')
 //  Web print page in a WebView — exactly what the web frontend prints.
 // ─────────────────────────────────────────────────────────────────────────────
 
+/// Entries of every module with a web print page open straight in that page
+/// (fit to the screen, pinch to zoom). Modules without one keep the detail screen.
+bool opensInPrint(ErpModule m) => printRoutes.containsKey(m.key);
+
+/// One entry shown as its web print page. Loads the record first when the list
+/// row doesn't carry the print id (uuid). "Details" still opens the old screen.
+class RecordPrintScreen extends StatefulWidget {
+  final ErpModule module;
+  final Map<String, dynamic> record;
+  final Widget Function() detailsScreen;
+  const RecordPrintScreen({super.key, required this.module, required this.record, required this.detailsScreen});
+
+  @override
+  State<RecordPrintScreen> createState() => _RecordPrintScreenState();
+}
+
+class _RecordPrintScreenState extends State<RecordPrintScreen> {
+  Map<String, dynamic>? _data;
+  String? _error;
+
+  ErpModule get m => widget.module;
+
+  String get _title {
+    final d = _data ?? widget.record;
+    final tk = RecordUtils.titleKey(d, m.titleKey);
+    return tk == null ? m.title : '${m.title} ${RecordUtils.text(d, tk)}';
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    if (_uuidOf(widget.record) != null || m.detail == null) {
+      setState(() => _data = widget.record);
+      return;
+    }
+    try {
+      final d = await ApiService.instance.get('${m.detail}/${widget.record[m.idKey]}', projectScoped: false);
+      final row = d is List && d.isNotEmpty ? d.first : d;
+      if (!mounted) return;
+      setState(() => _data = row is Map ? {...widget.record, ...Map<String, dynamic>.from(row)} : widget.record);
+    } on ApiException catch (e) {
+      if (mounted) setState(() => _error = e.message);
+    }
+  }
+
+  void _openDetails() => Navigator.push(context, MaterialPageRoute(builder: (_) => widget.detailsScreen()));
+
+  @override
+  Widget build(BuildContext context) {
+    final detailsBtn = IconButton(
+      tooltip: 'Details',
+      icon: const Icon(Icons.list_alt_rounded, color: Colors.white),
+      onPressed: _openDetails,
+    );
+    final data = _data;
+    final url = data == null ? null : webPrintUrl(m, data);
+    if (url != null) {
+      return WebPrintScreen(url: url, title: _title, module: m, data: data!, extraActions: [detailsBtn]);
+    }
+    // Loaded, but this entry has no print id (an old record not yet given one
+    // on the server): show the details straight away instead of an empty page.
+    if (data != null && _error == null) return widget.detailsScreen();
+    return Scaffold(
+      appBar: PPAppBar(title: _title, subtitle: 'Document view', actions: [detailsBtn]),
+      body: data == null && _error == null
+          ? const Center(child: CircularProgressIndicator())
+          : EmptyState(
+              icon: Icons.description_outlined,
+              title: 'Could not open this entry',
+              message: _error,
+              action: FilledButton(onPressed: _openDetails, child: const Text('Open details')),
+            ),
+    );
+  }
+}
+
 class WebPrintScreen extends StatefulWidget {
   final String url, title;
   final ErpModule module;
   final Map<String, dynamic> data;
-  const WebPrintScreen({super.key, required this.url, required this.title, required this.module, required this.data});
+
+  /// Extra app-bar buttons (e.g. "Details" when the print page is the main view).
+  final List<Widget> extraActions;
+  const WebPrintScreen({
+    super.key,
+    required this.url,
+    required this.title,
+    required this.module,
+    required this.data,
+    this.extraActions = const [],
+  });
 
   @override
   State<WebPrintScreen> createState() => _WebPrintScreenState();
@@ -93,13 +186,14 @@ class _WebPrintScreenState extends State<WebPrintScreen> {
   bool _failed = false;
   bool _making = false;
 
-  // Desktop-width page (the print layout is A4 ≈ 900px), screen-only bar hidden,
-  // and the page's own "Print / Save as PDF" buttons routed to the app.
+  // The A4-wide page (~920px) shrunk to fit the phone (the web print layout
+  // does this too; done here as well so older web builds also fit), screen-only
+  // bar hidden, and the page's own "Print / Save as PDF" buttons routed to the app.
+  // Pinch with two fingers to zoom in.
   static const _prepare = '''
 (function(){
-  var m=document.querySelector('meta[name=viewport]');
-  if(!m){m=document.createElement('meta');m.name='viewport';document.head.appendChild(m);}
-  m.content='width=920, initial-scale=0.1';
+  var r=document.documentElement, w=window.innerWidth;
+  if(w && w<920 && !r.style.zoom){ r.style.zoom=String(w/920); r.style.backgroundColor='#f3f4f6'; }
   if(!document.getElementById('erp-mobile-css')){
     var s=document.createElement('style');s.id='erp-mobile-css';
     s.textContent='.print\\\\:hidden{display:none!important} body{background:#e5e7eb!important}';
@@ -128,6 +222,14 @@ class _WebPrintScreenState extends State<WebPrintScreen> {
             r.url.startsWith(widget.url) || r.url == 'about:blank' ? NavigationDecision.navigate : NavigationDecision.prevent,
       ))
       ..loadRequest(Uri.parse(widget.url));
+    // Open zoomed out to the whole A4 width; pinch with two fingers to zoom in.
+    final p = _web.platform;
+    if (p is AndroidWebViewController) {
+      p.setUseWideViewPort(true);
+      p.enableZoom(true);
+    } else {
+      _web.enableZoom(true);
+    }
   }
 
   /// Turn the rendered page into a real A4 PDF inside the page (html2canvas +
@@ -140,8 +242,9 @@ class _WebPrintScreenState extends State<WebPrintScreen> {
   try{
     await load('https://cdn.jsdelivr.net/npm/html2canvas-pro@1.5.8/dist/html2canvas-pro.min.js');
     if(!window.jspdf) await load('https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js');
+    var root=document.documentElement, z=root.style.zoom; root.style.zoom='';
     var el=document.querySelector('div.bg-white.mx-auto.shadow-md')||document.body;
-    var c=await html2canvas(el,{scale:2,useCORS:true,backgroundColor:'#ffffff',windowWidth:920});
+    var c; try{ c=await html2canvas(el,{scale:2,useCORS:true,backgroundColor:'#ffffff',windowWidth:920}); } finally { root.style.zoom=z; }
     var pdf=new jspdf.jsPDF('p','mm','a4'); var W=210,H=297, m=6;
     var pxPerMm=c.width/(W-2*m), pageH=Math.floor((H-2*m)*pxPerMm);
     for(var y=0,i=0;y<c.height;y+=pageH,i++){
@@ -209,6 +312,7 @@ class _WebPrintScreenState extends State<WebPrintScreen> {
         title: widget.title,
         subtitle: 'Document view',
         actions: [
+          ...widget.extraActions,
           IconButton(
             tooltip: 'Reload',
             icon: const Icon(Icons.refresh_rounded, color: Colors.white),

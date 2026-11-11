@@ -3,6 +3,7 @@ import '../../config/module_registry.dart';
 import '../../services/api_service.dart';
 import '../../theme/app_theme.dart';
 import '../project/project_picker.dart';
+import '../dpr/dpr_screens.dart';
 import 'list_screen.dart';
 import 'report_screen.dart';
 
@@ -25,7 +26,11 @@ Future<void> openModule(BuildContext context, ErpModule m) async {
   Navigator.push(
     context,
     MaterialPageRoute(
-      builder: (_) => m.kind == ModuleKind.report ? ReportScreen(module: m) : ListScreen(module: m),
+      builder: (_) => switch (m.kind) {
+        ModuleKind.report => ReportScreen(module: m),
+        ModuleKind.dpr => DprScreen(module: m),
+        ModuleKind.list => ListScreen(module: m),
+      },
     ),
   );
 }

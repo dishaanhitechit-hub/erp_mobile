@@ -1,10 +1,29 @@
 import 'dart:async';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'api_service.dart';
 import 'comm_api.dart';
 import '../screens/comm/call_screen.dart';
+
+/// Lets the ringing / in-call screens show over the lock screen (and wake the
+/// screen) like a phone call. On only while one of them is open, so the ERP is
+/// never visible on a locked phone otherwise.
+class CallLockScreen {
+  static const _ch = MethodChannel('erp/call_screen');
+  static int _open = 0;
+
+  static void enter() {
+    if (_open++ == 0) _set(true);
+  }
+
+  static void leave() {
+    if (_open > 0 && --_open == 0) _set(false);
+  }
+
+  static void _set(bool on) => _ch.invokeMethod('ringing', on).catchError((_) {});
+}
 
 /// Global navigator so a ringing call can open from anywhere in the app.
 final appNavigatorKey = GlobalKey<NavigatorState>();
@@ -97,6 +116,7 @@ class CallService {
     importance: Importance.max,
     priority: Priority.max,
     category: AndroidNotificationCategory.call,
+    fullScreenIntent: true, // ring over the lock screen like a phone call
     timeoutAfter: 45000,
     ongoing: true,
     autoCancel: true,

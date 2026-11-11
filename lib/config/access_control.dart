@@ -43,6 +43,10 @@ class AccessControl {
   /// Turn on once the add/edit forms exist in the app.
   static const bool allowEdit = false;
 
+  /// Modules whose add/edit screens already exist in the app. These keep the
+  /// user's real EDIT permission even while [allowEdit] is off.
+  static const Set<String> editableOnMobile = {'daily_progress_report'};
+
   /// Level for every module when [useRbac] is off.
   static const AccessLevel defaultLevel = AccessLevel.view;
 
@@ -74,7 +78,7 @@ class AccessControl {
     final forced = overrides[key];
     if (forced != null) return forced;
     final level = useRbac ? realLevel(permissionKey ?? key, section) : defaultLevel;
-    if (!allowEdit && level == AccessLevel.edit) return AccessLevel.view;
+    if (!allowEdit && level == AccessLevel.edit && !editableOnMobile.contains(key)) return AccessLevel.view;
     return level;
   }
 

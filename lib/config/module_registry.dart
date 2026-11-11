@@ -8,7 +8,8 @@
 import 'package:flutter/material.dart';
 import 'access_control.dart';
 
-enum ModuleKind { list, report }
+/// list/report: generic screens. dpr: Daily Progress Report (photos + AI report).
+enum ModuleKind { list, report, dpr }
 
 class ErpModule {
   /// Unique key — same as the web frontend's permissionKey.
@@ -207,7 +208,8 @@ const _project = ModuleSection(
       ErpModule(key: 'promise_schedule', title: 'Promise Schedule', icon: Icons.handshake_rounded),
     ]),
     ModuleGroup('Progress', [
-      ErpModule(key: 'daily_progress_report', title: 'Daily Progress', icon: Icons.trending_up_rounded),
+      ErpModule(key: 'daily_progress_report', title: 'Daily Progress', icon: Icons.photo_camera_rounded,
+          endpoint: '/project-mgmt/dpr/list', kind: ModuleKind.dpr),
       ErpModule(key: 'job_achievement', title: 'Job Achievement', icon: Icons.emoji_events_rounded),
     ]),
     ModuleGroup('Register', [

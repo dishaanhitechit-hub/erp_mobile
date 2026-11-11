@@ -7,6 +7,7 @@ import '../../theme/app_theme.dart';
 import '../../widgets/glass_card.dart';
 import '../../widgets/pp_widgets.dart';
 import 'detail_screen.dart';
+import 'print_view_screen.dart';
 import 'session.dart';
 
 /// Generic list for any module (PhonePe "transaction history" style).
@@ -212,7 +213,13 @@ class _ListScreenState extends State<ListScreen> {
                 module: m,
                 color: colorFor(i),
                 onTap: () => Navigator.push(context, MaterialPageRoute(
-                  builder: (_) => DetailScreen(module: m, record: items[i]),
+                  builder: (_) => opensInPrint(m)
+                      ? RecordPrintScreen(
+                          module: m,
+                          record: items[i],
+                          detailsScreen: () => DetailScreen(module: m, record: items[i]),
+                        )
+                      : DetailScreen(module: m, record: items[i]),
                 )),
               ),
             ),
